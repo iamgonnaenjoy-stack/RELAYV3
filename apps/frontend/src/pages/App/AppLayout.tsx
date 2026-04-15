@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import ChannelList from '@/components/ChannelList/ChannelList'
 import ChatArea from '@/components/Chat/ChatArea'
+import ServerHome from '@/components/ServerHome/ServerHome'
 import { useChannelStore } from '@/stores/channel.store'
 import { useServerStore } from '@/stores/server.store'
 import { channelApi, serverApi } from '@/lib/services'
@@ -9,8 +10,13 @@ import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 export default function AppLayout() {
   const setServer = useServerStore((state) => state.setServer)
+  const resetServer = useServerStore((state) => state.resetServer)
+  const setServerLoading = useServerStore((state) => state.setLoading)
   const channels = useChannelStore((state) => state.channels)
+  const channelLoading = useChannelStore((state) => state.loading)
   const setChannels = useChannelStore((state) => state.setChannels)
+  const resetChannels = useChannelStore((state) => state.resetChannels)
+  const setChannelLoading = useChannelStore((state) => state.setLoading)
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -28,30 +34,48 @@ export default function AppLayout() {
   }, [])
 
   useEffect(() => {
+    let active = true
+    setServerLoading(true)
+    setChannelLoading(true)
+
     Promise.all([serverApi.getCurrent(), channelApi.getAll()])
       .then(([serverResponse, channelResponse]) => {
+        if (!active) return
         setServer(serverResponse.data)
         setChannels(channelResponse.data)
       })
       .catch(() => {
-        setChannels([])
+        if (!active) return
+        resetServer()
+        resetChannels()
       })
-  }, [setChannels, setServer])
+      .finally(() => {
+        if (!active) return
+        setServerLoading(false)
+        setChannelLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [
+    resetChannels,
+    resetServer,
+    setChannelLoading,
+    setChannels,
+    setServer,
+    setServerLoading,
+  ])
 
   useEffect(() => {
-    if (channels.length === 0) return
+    if (!routeChannelId || channelLoading) return
 
     const selectedChannel = channels.find((channel) => channel.id === routeChannelId)
 
-    if (selectedChannel) return
-
-    const fallbackChannel = channels.find((channel) => channel.type === 'TEXT') ?? channels[0]
-    if (!fallbackChannel) return
-
-    if (routeChannelId !== fallbackChannel.id) {
-      navigate(`/app/channel/${fallbackChannel.id}`, { replace: true })
+    if (!selectedChannel) {
+      navigate('/app', { replace: true })
     }
-  }, [channels, navigate, routeChannelId])
+  }, [channelLoading, channels, navigate, routeChannelId])
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#000000]">
@@ -59,15 +83,9 @@ export default function AppLayout() {
 
       <main className="flex flex-1 flex-col overflow-hidden bg-[#0B0C0F]">
         <Routes>
+          <Route index element={<ServerHome />} />
           <Route path="channel/:channelId" element={<ChatArea />} />
-          <Route
-            path="*"
-            element={
-              <div className="flex flex-1 items-center justify-center text-sm text-[#4B5563]">
-                No text channel is live yet. Create channels from Relay Admin.
-              </div>
-            }
-          />
+          <Route path="*" element={<ServerHome />} />
         </Routes>
       </main>
     </div>

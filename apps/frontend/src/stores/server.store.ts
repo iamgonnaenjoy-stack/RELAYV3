@@ -11,10 +11,16 @@ export interface RelayServer {
 
 interface ServerState {
   server: RelayServer | null
+  loading: boolean
   setServer: (server: RelayServer) => void
+  setLoading: (loading: boolean) => void
+  resetServer: () => void
 }
 
 export const useServerStore = create<ServerState>((set) => ({
   server: null,
+  loading: true,
   setServer: (server) => set({ server }),
+  setLoading: (loading) => set({ loading }),
+  resetServer: () => set({ server: null, loading: true }),
 }))

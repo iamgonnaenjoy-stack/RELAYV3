@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { startTransition, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, Hash, LogOut, Volume2, Zap } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Channel, useChannelStore } from '@/stores/channel.store'
 import { useServerStore } from '@/stores/server.store'
+import { useMessageStore } from '@/stores/message.store'
+import Skeleton from '@/components/ui/Skeleton'
 
 function ChannelIcon({ type }: { type: Channel['type'] }) {
   if (type === 'VOICE') return <Volume2 size={15} className="flex-shrink-0 opacity-50" />
@@ -12,23 +14,48 @@ function ChannelIcon({ type }: { type: Channel['type'] }) {
 
 export default function ChannelList() {
   const channels = useChannelStore((state) => state.channels)
+  const channelsLoading = useChannelStore((state) => state.loading)
+  const resetChannels = useChannelStore((state) => state.resetChannels)
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const server = useServerStore((state) => state.server)
+  const serverLoading = useServerStore((state) => state.loading)
+  const resetServer = useServerStore((state) => state.resetServer)
+  const resetMessages = useMessageStore((state) => state.resetMessages)
   const location = useLocation()
   const navigate = useNavigate()
   const [textOpen, setTextOpen] = useState(true)
   const [voiceOpen, setVoiceOpen] = useState(true)
 
   const activeChannelId = location.pathname.match(/\/app\/channel\/([^/]+)/)?.[1] ?? null
-  const textChannels = channels.filter((channel) => channel.type === 'TEXT')
-  const voiceChannels = channels.filter((channel) => channel.type === 'VOICE')
+  const textChannels = useMemo(
+    () => channels.filter((channel) => channel.type === 'TEXT'),
+    [channels]
+  )
+  const voiceChannels = useMemo(
+    () => channels.filter((channel) => channel.type === 'VOICE'),
+    [channels]
+  )
+  const showChannelSkeletons = channelsLoading && channels.length === 0
 
   function handleChannelClick(channel: Channel) {
-    navigate(`/app/channel/${channel.id}`)
+    if (activeChannelId === channel.id) return
+
+    startTransition(() => {
+      navigate(`/app/channel/${channel.id}`)
+    })
+  }
+
+  function handleServerClick() {
+    startTransition(() => {
+      navigate('/app')
+    })
   }
 
   function handleLogout() {
+    resetMessages()
+    resetChannels()
+    resetServer()
     clearAuth()
     navigate('/')
   }
@@ -44,7 +71,9 @@ export default function ChannelList() {
         flexShrink: 0,
       }}
     >
-      <div
+      <button
+        type="button"
+        onClick={handleServerClick}
         style={{
           height: 48,
           display: 'flex',
@@ -52,6 +81,12 @@ export default function ChannelList() {
           padding: '0 16px',
           borderBottom: '1px solid #1a1a1a',
           flexShrink: 0,
+          width: '100%',
+          background: 'transparent',
+          borderLeft: 'none',
+          borderRight: 'none',
+          borderTop: 'none',
+          cursor: 'pointer',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
@@ -69,22 +104,26 @@ export default function ChannelList() {
           >
             <Zap size={11} color="white" strokeWidth={2.5} />
           </div>
-          <span
-            style={{
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: 14,
-              letterSpacing: '-0.01em',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {server?.name ?? 'Relay'}
-          </span>
+          {serverLoading && !server ? (
+            <Skeleton className="h-[14px] w-[112px]" />
+          ) : (
+            <span
+              style={{
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: 14,
+                letterSpacing: '-0.01em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {server?.name ?? 'Relay'}
+            </span>
+          )}
         </div>
         <ChevronDown size={14} color="#555" />
-      </div>
+      </button>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 8px' }}>
         <button
@@ -125,7 +164,16 @@ export default function ChannelList() {
           </span>
         </button>
 
+        {textOpen && showChannelSkeletons && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 8px 0' }}>
+            <Skeleton className="h-8 w-full rounded-[6px]" />
+            <Skeleton className="h-8 w-[88%] rounded-[6px]" />
+            <Skeleton className="h-8 w-[76%] rounded-[6px]" />
+          </div>
+        )}
+
         {textOpen &&
+          !showChannelSkeletons &&
           textChannels.map((channel) => {
             const isActive = activeChannelId === channel.id
             return (
@@ -170,7 +218,7 @@ export default function ChannelList() {
             )
           })}
 
-        {voiceChannels.length > 0 && (
+        {(voiceChannels.length > 0 || showChannelSkeletons) && (
           <div style={{ marginTop: 16 }}>
             <button
               onClick={() => setVoiceOpen((value) => !value)}
@@ -209,7 +257,15 @@ export default function ChannelList() {
               </span>
             </button>
 
+            {voiceOpen && showChannelSkeletons && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 8px 0' }}>
+                <Skeleton className="h-8 w-[82%] rounded-[6px]" />
+                <Skeleton className="h-8 w-[70%] rounded-[6px]" />
+              </div>
+            )}
+
             {voiceOpen &&
+              !showChannelSkeletons &&
               voiceChannels.map((channel) => {
                 const isActive = activeChannelId === channel.id
                 return (
@@ -254,6 +310,12 @@ export default function ChannelList() {
                 )
               })}
           </div>
+        )}
+
+        {!channelsLoading && channels.length === 0 && (
+          <p style={{ padding: '10px 8px', fontSize: 12, color: '#4B5563' }}>
+            No channels are available yet.
+          </p>
         )}
       </div>
 
