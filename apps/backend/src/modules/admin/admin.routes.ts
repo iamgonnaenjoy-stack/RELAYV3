@@ -36,19 +36,17 @@ export async function adminRoutes(app: FastifyInstance) {
     }
   })
 
-  app.addHook('preHandler', authenticateAdmin)
-
-  app.get('/overview', async (_req, reply) => {
+  app.get('/overview', { preHandler: [authenticateAdmin] }, async (_req, reply) => {
     const overview = await getAdminOverview()
     return reply.send(overview)
   })
 
-  app.get('/server', async (_req, reply) => {
+  app.get('/server', { preHandler: [authenticateAdmin] }, async (_req, reply) => {
     const server = await getAdminServer()
     return reply.send(server)
   })
 
-  app.put('/server', async (req, reply) => {
+  app.put('/server', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     const body = updateServerSchema.safeParse(req.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Validation failed', issues: body.error.flatten() })
@@ -58,12 +56,12 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.send(server)
   })
 
-  app.get('/users', async (_req, reply) => {
+  app.get('/users', { preHandler: [authenticateAdmin] }, async (_req, reply) => {
     const users = await listAdminUsers()
     return reply.send(users)
   })
 
-  app.post('/users', async (req, reply) => {
+  app.post('/users', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     const body = createAdminUserSchema.safeParse(req.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Validation failed', issues: body.error.flatten() })
@@ -77,7 +75,7 @@ export async function adminRoutes(app: FastifyInstance) {
     }
   })
 
-  app.post('/users/:id/reset-access-key', async (req, reply) => {
+  app.post('/users/:id/reset-access-key', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     try {
       const { id } = req.params as { id: string }
       const created = await regenerateUserAccessKey(id)
@@ -87,12 +85,12 @@ export async function adminRoutes(app: FastifyInstance) {
     }
   })
 
-  app.get('/channels', async (_req, reply) => {
+  app.get('/channels', { preHandler: [authenticateAdmin] }, async (_req, reply) => {
     const channels = await listAdminChannels()
     return reply.send(channels)
   })
 
-  app.post('/channels', async (req, reply) => {
+  app.post('/channels', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     const body = createChannelSchema.safeParse(req.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Validation failed', issues: body.error.flatten() })
@@ -102,7 +100,7 @@ export async function adminRoutes(app: FastifyInstance) {
     return reply.code(201).send(channel)
   })
 
-  app.patch('/channels/:id', async (req, reply) => {
+  app.patch('/channels/:id', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     const body = updateChannelSchema.safeParse(req.body)
     if (!body.success) {
       return reply.code(400).send({ error: 'Validation failed', issues: body.error.flatten() })
@@ -117,7 +115,7 @@ export async function adminRoutes(app: FastifyInstance) {
     }
   })
 
-  app.delete('/channels/:id', async (req, reply) => {
+  app.delete('/channels/:id', { preHandler: [authenticateAdmin] }, async (req, reply) => {
     try {
       const { id } = req.params as { id: string }
       await deleteAdminChannel(id)
