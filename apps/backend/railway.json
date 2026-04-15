@@ -12,6 +12,7 @@
     ]
   },
   "deploy": {
+    "preDeployCommand": "npm run db:push",
     "startCommand": "npm run start",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 120,
