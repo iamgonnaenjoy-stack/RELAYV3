@@ -30,7 +30,7 @@ function isWithinDist(filePath) {
 }
 
 async function resolveFile(pathname) {
-  const requestedPath = pathname === '/' ? '/index.html' : pathname
+  const requestedPath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '')
   const candidate = normalize(join(distDir, requestedPath))
 
   if (!isWithinDist(candidate)) {

@@ -2,16 +2,20 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "RAILPACK",
-    "buildCommand": "pnpm --filter admin build",
+    "buildCommand": "npm run build",
     "watchPatterns": [
-      "/apps/admin/**",
+      "/src/**",
+      "/index.html",
       "/package.json",
-      "/pnpm-lock.yaml",
-      "/pnpm-workspace.yaml"
+      "/tailwind.config.js",
+      "/tsconfig.json",
+      "/vite.config.ts",
+      "/railway.json",
+      "/serve.mjs"
     ]
   },
   "deploy": {
-    "startCommand": "pnpm --filter admin start",
+    "startCommand": "npm run start",
     "healthcheckPath": "/",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
