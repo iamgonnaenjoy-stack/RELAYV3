@@ -14,20 +14,18 @@ export default function ServerHome() {
   const isLoading = serverLoading || channelsLoading
 
   return (
-    <section className="route-shell flex h-full flex-1 items-center justify-center overflow-y-auto bg-[#0B0C0F] px-6 py-10 sm:px-10">
+    <section className="route-shell lobby-shell flex h-full flex-1 items-center justify-center overflow-y-auto px-6 py-10 sm:px-10">
       <div className="w-full max-w-[760px]">
-        <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-[14px] border border-[#1E2230] bg-[#11131A] text-[#5865F2]">
+        <div className="lobby-mark mb-6 inline-flex h-12 w-12 items-center justify-center">
           <Zap size={20} strokeWidth={2.2} />
         </div>
 
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-[#626A79]">
-          Server Lobby
-        </p>
+        <p className="lobby-label mb-3">Server Lobby</p>
 
         {serverLoading && !server ? (
           <Skeleton className="mb-4 h-14 w-full max-w-[380px]" />
         ) : (
-          <h1 className="mb-4 text-[clamp(40px,8vw,72px)] font-semibold leading-[0.96] tracking-[-0.05em] text-white">
+          <h1 className="lobby-heading mb-4 text-[clamp(40px,8vw,72px)]">
             {server?.name ?? 'Relay'}
           </h1>
         )}
@@ -38,30 +36,31 @@ export default function ServerHome() {
             <Skeleton className="h-4 w-full max-w-[440px]" />
           </div>
         ) : (
-          <p className="max-w-[620px] text-[15px] leading-7 text-[#7A8190] sm:text-[16px]">
+          <p className="lobby-copy max-w-[620px] text-[15px] leading-7 sm:text-[16px]">
             Choose a channel from the sidebar to join the conversation. Messages stay hidden until
             you actively enter a channel.
           </p>
         )}
 
-        <div className="mt-10 flex flex-wrap gap-3">
+        <div className="mt-10 flex max-w-[520px] flex-col gap-3">
           {isLoading ? (
             <>
-              <Skeleton className="h-10 w-[150px] rounded-full" />
-              <Skeleton className="h-10 w-[162px] rounded-full" />
-              <Skeleton className="h-10 w-[134px] rounded-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
             </>
           ) : (
             <>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#1E2230] bg-[#0F1116] px-4 py-2.5 text-sm text-[#D4D8E3]">
-                <Hash size={14} className="text-[#5865F2]" />
-                <span>{textChannels.length} text channels</span>
+              <div className="lobby-row">
+                <Hash size={14} className="lobby-row-icon" />
+                <span>{textChannels.length} text channels available</span>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#1E2230] bg-[#0F1116] px-4 py-2.5 text-sm text-[#D4D8E3]">
-                <Volume2 size={14} className="text-[#5865F2]" />
-                <span>{voiceChannels.length} voice channels</span>
+              <div className="lobby-row">
+                <Volume2 size={14} className="lobby-row-icon" />
+                <span>{voiceChannels.length} voice channels available</span>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#1E2230] bg-[#0F1116] px-4 py-2.5 text-sm text-[#8D95A3]">
+              <div className="lobby-row">
+                <Zap size={14} className="lobby-row-icon" />
                 <span>Select a channel to begin</span>
               </div>
             </>

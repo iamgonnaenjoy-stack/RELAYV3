@@ -81,7 +81,7 @@ export default function AppLayout() {
     <div className="flex h-full w-full overflow-hidden bg-[#000000]">
       <ChannelList />
 
-      <main className="flex flex-1 flex-col overflow-hidden bg-[#0B0C0F]">
+      <main className="flex flex-1 flex-col overflow-hidden bg-[var(--bg-chat)]">
         <Routes>
           <Route index element={<ServerHome />} />
           <Route path="channel/:channelId" element={<ChatArea />} />
