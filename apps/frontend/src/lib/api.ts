@@ -21,7 +21,6 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       useAuthStore.getState().clearAuth()
-      window.location.href = '/'
     }
     return Promise.reject(err)
   }

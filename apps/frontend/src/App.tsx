@@ -11,6 +11,15 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const token = useAuthStore((s) => s.token)
+  const hydrated = useAuthStore((s) => s.hydrated)
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-[#000000] text-sm text-[#4B5563]">
+        Loading Relay...
+      </div>
+    )
+  }
 
   return (
     <Routes>

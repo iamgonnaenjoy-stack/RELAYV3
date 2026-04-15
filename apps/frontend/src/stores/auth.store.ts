@@ -12,8 +12,10 @@ interface User {
 interface AuthState {
   user: User | null
   token: string | null
+  hydrated: boolean
   setAuth: (user: User, token: string) => void
   clearAuth: () => void
+  setHydrated: (hydrated: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -21,9 +23,16 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      hydrated: false,
       setAuth: (user, token) => set({ user, token }),
       clearAuth: () => set({ user: null, token: null }),
+      setHydrated: (hydrated) => set({ hydrated }),
     }),
-    { name: 'relay-auth' }
+    {
+      name: 'relay-auth',
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true)
+      },
+    }
   )
 )
