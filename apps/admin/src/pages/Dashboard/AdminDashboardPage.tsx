@@ -17,9 +17,17 @@ import { adminApi } from '@/lib/services'
 import { AdminChannel, AdminMember, RelayServer } from '@/lib/types'
 import { useAdminAuthStore } from '@/stores/admin-auth.store'
 
+type AdminSection = 'server' | 'members' | 'channels'
+
 function relativeDate(value: string | null) {
   if (!value) return 'Never'
   return formatDistanceToNow(new Date(value), { addSuffix: true })
+}
+
+function sectionFromHash(hash: string): AdminSection {
+  const value = hash.replace('#', '')
+  if (value === 'members' || value === 'channels') return value
+  return 'server'
 }
 
 function normalizeMember(member: AdminMember): AdminMember {
@@ -37,6 +45,7 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [activeSection, setActiveSection] = useState<AdminSection>('server')
   const [server, setServer] = useState<RelayServer | null>(null)
   const [users, setUsers] = useState<AdminMember[]>([])
   const [channels, setChannels] = useState<AdminChannel[]>([])
@@ -82,9 +91,28 @@ export default function AdminDashboardPage() {
     void loadDashboard()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncSection = () => setActiveSection(sectionFromHash(window.location.hash))
+
+    syncSection()
+    window.addEventListener('hashchange', syncSection)
+
+    return () => window.removeEventListener('hashchange', syncSection)
+  }, [])
+
   function handleLogout() {
     clearAuth()
     window.location.href = '/'
+  }
+
+  function handleSectionChange(section: AdminSection) {
+    setActiveSection(section)
+
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${section}`)
+    }
   }
 
   async function handleSaveServer(event: FormEvent<HTMLFormElement>) {
@@ -224,27 +252,42 @@ export default function AdminDashboardPage() {
         </div>
 
         <nav className="border-b border-border-soft px-3 py-4">
-          <a
-            href="#server"
-            className="flex items-center gap-3 rounded-control px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-elevated hover:text-white"
+          <button
+            type="button"
+            onClick={() => handleSectionChange('server')}
+            className={`flex w-full items-center gap-3 rounded-control px-3 py-2 text-sm transition ${
+              activeSection === 'server'
+                ? 'bg-bg-elevated text-white'
+                : 'text-text-secondary hover:bg-bg-elevated hover:text-white'
+            }`}
           >
             <Shield size={15} />
             Server
-          </a>
-          <a
-            href="#members"
-            className="mt-1 flex items-center gap-3 rounded-control px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-elevated hover:text-white"
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSectionChange('members')}
+            className={`mt-1 flex w-full items-center gap-3 rounded-control px-3 py-2 text-sm transition ${
+              activeSection === 'members'
+                ? 'bg-bg-elevated text-white'
+                : 'text-text-secondary hover:bg-bg-elevated hover:text-white'
+            }`}
           >
             <Users size={15} />
             Members
-          </a>
-          <a
-            href="#channels"
-            className="mt-1 flex items-center gap-3 rounded-control px-3 py-2 text-sm text-text-secondary transition hover:bg-bg-elevated hover:text-white"
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSectionChange('channels')}
+            className={`mt-1 flex w-full items-center gap-3 rounded-control px-3 py-2 text-sm transition ${
+              activeSection === 'channels'
+                ? 'bg-bg-elevated text-white'
+                : 'text-text-secondary hover:bg-bg-elevated hover:text-white'
+            }`}
           >
             <Radio size={15} />
             Channels
-          </a>
+          </button>
         </nav>
 
         <div className="px-4 py-4">
@@ -273,10 +316,14 @@ export default function AdminDashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-muted">
-                  Workspace
+                  {activeSection}
                 </p>
                 <h1 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-white">
-                  {server?.name ?? 'Relay'}
+                  {activeSection === 'server'
+                    ? 'Server'
+                    : activeSection === 'members'
+                      ? 'Members'
+                      : 'Channels'}
                 </h1>
               </div>
 
@@ -288,6 +335,38 @@ export default function AdminDashboardPage() {
                   Sign out
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="border-b border-border-soft px-4 py-3 sm:px-6 lg:hidden">
+            <div className="flex gap-2 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => handleSectionChange('server')}
+                className={`secondary-button h-9 shrink-0 px-3 ${
+                  activeSection === 'server' ? 'border-border text-white' : ''
+                }`}
+              >
+                Server
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionChange('members')}
+                className={`secondary-button h-9 shrink-0 px-3 ${
+                  activeSection === 'members' ? 'border-border text-white' : ''
+                }`}
+              >
+                Members
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSectionChange('channels')}
+                className={`secondary-button h-9 shrink-0 px-3 ${
+                  activeSection === 'channels' ? 'border-border text-white' : ''
+                }`}
+              >
+                Channels
+              </button>
             </div>
           </div>
 
@@ -303,9 +382,9 @@ export default function AdminDashboardPage() {
             </div>
           ) : null}
 
-          <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-h-0 overflow-y-auto">
-              <section id="server" className="border-b border-border-soft px-4 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+            {activeSection === 'server' ? (
+              <section className="max-w-[720px]">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
@@ -318,7 +397,7 @@ export default function AdminDashboardPage() {
                   </p>
                 </div>
 
-                <form className="mt-5 grid max-w-[720px] gap-4" onSubmit={handleSaveServer}>
+                <form className="mt-6 grid gap-4" onSubmit={handleSaveServer}>
                   <div>
                     <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
                       Server name
@@ -353,199 +432,201 @@ export default function AdminDashboardPage() {
                   </button>
                 </form>
               </section>
+            ) : null}
 
-              <section id="members" className="border-b border-border-soft px-4 py-5 sm:px-6">
+            {activeSection === 'members' ? (
+              <section className="max-w-[980px]">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                       Members
                     </p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">Provisioned users</h2>
+                    <h2 className="mt-2 text-lg font-semibold text-white">Create and manage members</h2>
                   </div>
                   <p className="text-xs text-text-secondary">{users.length} total</p>
                 </div>
 
-                <div className="mt-5 overflow-hidden rounded-control border border-border-soft bg-[#07090c]">
-                  {users.length > 0 ? (
-                    users.map((member, index) => (
-                      <MemberRow
-                        key={member.id}
-                        member={member}
-                        isLast={index === users.length - 1}
-                        submitting={submitting}
-                        onReset={handleResetAccessKey}
-                        relativeDate={relativeDate}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-4 py-6 text-sm text-text-secondary">No users yet.</div>
-                  )}
+                <div className="mt-6 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                  <div className="rounded-control border border-border-soft bg-[#07090c] p-4">
+                    <form className="grid gap-4" onSubmit={handleCreateUser}>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Username
+                        </label>
+                        <input
+                          className="field"
+                          value={userForm.username}
+                          onChange={(event) =>
+                            setUserForm((current) => ({ ...current, username: event.target.value }))
+                          }
+                          placeholder="night-runner"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Email
+                        </label>
+                        <input
+                          className="field"
+                          value={userForm.email}
+                          onChange={(event) =>
+                            setUserForm((current) => ({ ...current, email: event.target.value }))
+                          }
+                          placeholder="optional@relay.app"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="primary-button w-fit gap-2"
+                      >
+                        <KeyRound size={15} />
+                        Create member
+                      </button>
+                    </form>
+
+                    {lastCreatedKey ? (
+                      <div className="mt-5 rounded-control border border-[#184628] bg-[#06110a] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#78d79a]">
+                            Access key
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(lastCreatedKey)}
+                            className="secondary-button h-9 gap-2 border-[#184628] px-3 text-[#78d79a] hover:border-[#27663c] hover:text-[#8ce3aa]"
+                          >
+                            <Copy size={14} />
+                            {copiedKey ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+
+                        <div className="mt-3 font-mono text-xs leading-6 text-[#78d79a]">
+                          {lastCreatedKey}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="overflow-hidden rounded-control border border-border-soft bg-[#07090c]">
+                    {users.length > 0 ? (
+                      users.map((member, index) => (
+                        <MemberRow
+                          key={member.id}
+                          member={member}
+                          isLast={index === users.length - 1}
+                          submitting={submitting}
+                          onReset={handleResetAccessKey}
+                          relativeDate={relativeDate}
+                        />
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-sm text-text-secondary">No users yet.</div>
+                    )}
+                  </div>
                 </div>
               </section>
+            ) : null}
 
-              <section id="channels" className="px-4 py-5 sm:px-6">
+            {activeSection === 'channels' ? (
+              <section className="max-w-[980px]">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                       Channels
                     </p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">Server channels</h2>
+                    <h2 className="mt-2 text-lg font-semibold text-white">Create and manage channels</h2>
                   </div>
                   <p className="text-xs text-text-secondary">{channels.length} active</p>
                 </div>
 
-                <div className="mt-5 overflow-hidden rounded-control border border-border-soft bg-[#07090c]">
-                  {channels.length > 0 ? (
-                    channels.map((channel, index) => (
-                      <ChannelRow
-                        key={channel.id}
-                        channel={channel}
-                        isLast={index === channels.length - 1}
-                        submitting={submitting}
-                        onDelete={handleDeleteChannel}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-4 py-6 text-sm text-text-secondary">No channels yet.</div>
-                  )}
+                <div className="mt-6 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                  <div className="rounded-control border border-border-soft bg-[#07090c] p-4">
+                    <form className="grid gap-4" onSubmit={handleCreateChannel}>
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Channel name
+                        </label>
+                        <input
+                          className="field"
+                          value={channelForm.name}
+                          onChange={(event) =>
+                            setChannelForm((current) => ({
+                              ...current,
+                              name: event.target.value.toLowerCase().replace(/\s+/g, '-'),
+                            }))
+                          }
+                          placeholder="general"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Type
+                        </label>
+                        <select
+                          className="field"
+                          value={channelForm.type}
+                          onChange={(event) =>
+                            setChannelForm((current) => ({
+                              ...current,
+                              type: event.target.value as 'TEXT' | 'VOICE',
+                            }))
+                          }
+                        >
+                          <option value="TEXT">Text</option>
+                          <option value="VOICE">Voice</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                          Description
+                        </label>
+                        <input
+                          className="field"
+                          value={channelForm.description}
+                          onChange={(event) =>
+                            setChannelForm((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }))
+                          }
+                          placeholder="What should happen in here?"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="primary-button w-fit gap-2"
+                      >
+                        <Hash size={15} />
+                        Create channel
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="overflow-hidden rounded-control border border-border-soft bg-[#07090c]">
+                    {channels.length > 0 ? (
+                      channels.map((channel, index) => (
+                        <ChannelRow
+                          key={channel.id}
+                          channel={channel}
+                          isLast={index === channels.length - 1}
+                          submitting={submitting}
+                          onDelete={handleDeleteChannel}
+                        />
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-sm text-text-secondary">No channels yet.</div>
+                    )}
+                  </div>
                 </div>
               </section>
-            </div>
-
-            <aside className="min-h-0 overflow-y-auto border-t border-border-soft lg:border-l lg:border-t-0">
-              <section className="border-b border-border-soft px-4 py-5 sm:px-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                  Members
-                </p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Create member</h2>
-
-                <form className="mt-5 grid gap-4" onSubmit={handleCreateUser}>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Username
-                    </label>
-                    <input
-                      className="field"
-                      value={userForm.username}
-                      onChange={(event) =>
-                        setUserForm((current) => ({ ...current, username: event.target.value }))
-                      }
-                      placeholder="night-runner"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Email
-                    </label>
-                    <input
-                      className="field"
-                      value={userForm.email}
-                      onChange={(event) =>
-                        setUserForm((current) => ({ ...current, email: event.target.value }))
-                      }
-                      placeholder="optional@relay.app"
-                    />
-                  </div>
-
-                  <button type="submit" disabled={submitting} className="primary-button w-fit gap-2">
-                    <KeyRound size={15} />
-                    Create member
-                  </button>
-                </form>
-              </section>
-
-              {lastCreatedKey ? (
-                <section className="border-b border-border-soft px-4 py-5 sm:px-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#78d79a]">
-                        Access key
-                      </p>
-                      <p className="mt-2 text-xs text-[#96c9a7]">
-                        Copy the full key and share it with the member.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(lastCreatedKey)}
-                      className="secondary-button h-9 gap-2 border-[#184628] px-3 text-[#78d79a] hover:border-[#27663c] hover:text-[#8ce3aa]"
-                    >
-                      <Copy size={14} />
-                      {copiedKey ? 'Copied' : 'Copy'}
-                    </button>
-                  </div>
-
-                  <div className="mt-4 rounded-control border border-[#184628] bg-[#06110a] px-3 py-3 font-mono text-xs leading-6 text-[#78d79a]">
-                    {lastCreatedKey}
-                  </div>
-                </section>
-              ) : null}
-
-              <section className="px-4 py-5 sm:px-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                  Channels
-                </p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Create channel</h2>
-
-                <form className="mt-5 grid gap-4" onSubmit={handleCreateChannel}>
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Channel name
-                    </label>
-                    <input
-                      className="field"
-                      value={channelForm.name}
-                      onChange={(event) =>
-                        setChannelForm((current) => ({
-                          ...current,
-                          name: event.target.value.toLowerCase().replace(/\s+/g, '-'),
-                        }))
-                      }
-                      placeholder="general"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Type
-                    </label>
-                    <select
-                      className="field"
-                      value={channelForm.type}
-                      onChange={(event) =>
-                        setChannelForm((current) => ({
-                          ...current,
-                          type: event.target.value as 'TEXT' | 'VOICE',
-                        }))
-                      }
-                    >
-                      <option value="TEXT">Text</option>
-                      <option value="VOICE">Voice</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Description
-                    </label>
-                    <input
-                      className="field"
-                      value={channelForm.description}
-                      onChange={(event) =>
-                        setChannelForm((current) => ({ ...current, description: event.target.value }))
-                      }
-                      placeholder="What should happen in here?"
-                    />
-                  </div>
-
-                  <button type="submit" disabled={submitting} className="primary-button w-fit gap-2">
-                    <Hash size={15} />
-                    Create channel
-                  </button>
-                </form>
-              </section>
-            </aside>
+            ) : null}
           </div>
         </div>
       </main>
