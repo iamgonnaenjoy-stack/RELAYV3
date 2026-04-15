@@ -9,7 +9,6 @@ import {
   Save,
   Shield,
   Users,
-  Zap,
 } from 'lucide-react'
 import ChannelRow from '@/components/dashboard/ChannelRow'
 import MemberRow from '@/components/dashboard/MemberRow'
@@ -236,13 +235,16 @@ export default function AdminDashboardPage() {
     <div className="flex h-full bg-black text-white">
       <aside className="hidden w-[224px] shrink-0 border-r border-border-soft bg-[#030405] lg:flex lg:flex-col">
         <div className="border-b border-border-soft px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-control bg-bg-elevated text-accent">
-              <Zap size={16} />
-            </div>
+          <div className="flex flex-col gap-3">
+            <img
+              src="/relay-logo.png"
+              alt="Relay"
+              className="h-7 w-auto max-w-[126px] select-none"
+              draggable={false}
+            />
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-secondary">
-                Relay Admin
+                Admin
               </p>
               <p className="mt-1 text-sm font-semibold tracking-[-0.03em] text-white">
                 {server?.name ?? 'Relay'}

@@ -1,7 +1,7 @@
 import { startTransition, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ChevronDown, Hash, LogOut, Volume2, Zap } from 'lucide-react'
+import { ChevronDown, Hash, LogOut, Volume2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Channel, useChannelStore } from '@/stores/channel.store'
 import { useShellStore } from '@/stores/shell.store'
@@ -93,8 +93,13 @@ export default function ChannelList() {
         className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-divider px-4 text-left transition-colors duration-150 hover:bg-bg-hover"
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent text-white">
-            <Zap size={11} strokeWidth={2.5} />
+          <div className="h-5 w-5 shrink-0 overflow-hidden">
+            <img
+              src="/relay-logo.png"
+              alt="Relay"
+              className="block h-5 max-w-none select-none"
+              draggable={false}
+            />
           </div>
           {serverLoading && !server ? (
             <Skeleton className="h-[14px] w-[112px]" />

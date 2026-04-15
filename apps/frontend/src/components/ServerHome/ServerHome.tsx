@@ -1,4 +1,3 @@
-import { Zap } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
 import Shuffle from '@/components/ui/Shuffle'
 import { useServerStore } from '@/stores/server.store'
@@ -10,9 +9,12 @@ export default function ServerHome() {
   return (
     <section className="route-shell lobby-shell flex h-full flex-1 items-center justify-center overflow-y-auto px-6 py-10 sm:px-10">
       <div className="w-full max-w-[760px]">
-        <div className="lobby-mark mb-6 inline-flex h-12 w-12 items-center justify-center">
-          <Zap size={20} strokeWidth={2.2} />
-        </div>
+        <img
+          src="/relay-logo.png"
+          alt="Relay"
+          className="mb-6 h-10 w-auto select-none"
+          draggable={false}
+        />
 
         <p className="lobby-label mb-3">Server Lobby</p>
 
