@@ -9,9 +9,14 @@ import MessageInput from './MessageInput'
 import ChatHeader from './ChatHeader'
 import { Hash } from 'lucide-react'
 
+const EMPTY_MESSAGES: ReturnType<typeof useMessageStore.getState>['messages'][string] = []
+
 export default function ChatArea() {
   const { channelId } = useParams<{ channelId: string }>()
-  const messages = useMessageStore((s) => s.messages[channelId ?? ''] ?? [])
+  const messages = useMessageStore((s) => {
+    if (!channelId) return EMPTY_MESSAGES
+    return s.messages[channelId] ?? EMPTY_MESSAGES
+  })
   const setMessages = useMessageStore((s) => s.setMessages)
   const channels = useChannelStore((s) => s.channels)
   const channel = channels.find((c) => c.id === channelId)
