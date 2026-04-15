@@ -15,7 +15,7 @@ import { ensurePrimaryServer, getPrimaryServer, updatePrimaryServer } from '../s
 const ACCESS_KEY_PREFIX = 'relay_'
 
 function generateTokenPart(size = 18) {
-  return randomBytes(size).toString('base64url').replace(/[-_]/g, '').slice(0, size)
+  return randomBytes(Math.ceil(size / 2)).toString('hex').slice(0, size)
 }
 
 async function generateUniqueAccessKeyId() {

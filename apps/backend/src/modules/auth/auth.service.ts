@@ -66,7 +66,8 @@ export async function getMe(userId: string) {
 
 function parseAccessKey(accessKey: string) {
   const trimmed = accessKey.trim()
-  if (!trimmed.startsWith(ACCESS_KEY_PREFIX)) {
+  const prefix = trimmed.slice(0, ACCESS_KEY_PREFIX.length)
+  if (prefix.toLowerCase() !== ACCESS_KEY_PREFIX) {
     return null
   }
 
@@ -77,7 +78,7 @@ function parseAccessKey(accessKey: string) {
   }
 
   return {
-    accessKeyId: rawKey.slice(0, separatorIndex),
+    accessKeyId: rawKey.slice(0, separatorIndex).toLowerCase(),
     secret: rawKey.slice(separatorIndex + 1),
   }
 }
