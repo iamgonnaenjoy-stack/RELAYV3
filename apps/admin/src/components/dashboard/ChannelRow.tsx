@@ -26,17 +26,23 @@ export default function ChannelRow({ channel, isLast, submitting, onDelete }: Ch
               {channel.type === 'VOICE' ? <Radio size={15} /> : <Hash size={15} />}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-white">#{channel.name}</p>
-              <p className="truncate text-xs text-text-secondary">
-                {channel.description ?? 'No description'}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-sm font-semibold text-white">#{channel.name}</p>
+                <span
+                  className={clsx(
+                    'rounded-control border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]',
+                    channel.type === 'VOICE'
+                      ? 'border-[#184628] bg-[#06110a] text-success'
+                      : 'border-[#1d2545] bg-[#0a0f1a] text-accent'
+                  )}
+                >
+                  {channel.type}
+                </span>
+              </div>
+              {channel.description ? (
+                <p className="mt-1 truncate text-xs text-text-secondary">{channel.description}</p>
+              ) : null}
             </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] uppercase tracking-[0.18em] text-text-muted">
-            <span>{channel.type}</span>
-            <span>position {channel.position}</span>
-            <span>{channel._count?.messages ?? 0} messages</span>
           </div>
         </div>
 

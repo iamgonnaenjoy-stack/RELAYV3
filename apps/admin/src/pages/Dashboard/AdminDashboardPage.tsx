@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import {
   Copy,
@@ -14,7 +14,7 @@ import {
 import ChannelRow from '@/components/dashboard/ChannelRow'
 import MemberRow from '@/components/dashboard/MemberRow'
 import { adminApi } from '@/lib/services'
-import { AdminChannel, AdminMember, AdminOverview, RelayServer } from '@/lib/types'
+import { AdminChannel, AdminMember, RelayServer } from '@/lib/types'
 import { useAdminAuthStore } from '@/stores/admin-auth.store'
 
 function relativeDate(value: string | null) {
@@ -37,48 +37,37 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [overview, setOverview] = useState<AdminOverview | null>(null)
   const [server, setServer] = useState<RelayServer | null>(null)
   const [users, setUsers] = useState<AdminMember[]>([])
   const [channels, setChannels] = useState<AdminChannel[]>([])
   const [lastCreatedKey, setLastCreatedKey] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState(false)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
   const [serverForm, setServerForm] = useState({ name: '', description: '' })
-  const [userForm, setUserForm] = useState({ username: '', email: '', avatar: '' })
+  const [userForm, setUserForm] = useState({ username: '', email: '' })
   const [channelForm, setChannelForm] = useState({
     name: '',
     description: '',
     type: 'TEXT' as 'TEXT' | 'VOICE',
   })
 
-  const stats = useMemo(
-    () =>
-      overview?.stats ?? {
-        members: users.length,
-        channels: channels.length,
-        messages: 0,
-      },
-    [channels.length, overview?.stats, users.length]
-  )
-
   async function loadDashboard() {
     setLoading(true)
     setError('')
 
     try {
-      const [overviewResponse, usersResponse, channelsResponse] = await Promise.all([
-        adminApi.overview(),
+      const [serverResponse, usersResponse, channelsResponse] = await Promise.all([
+        adminApi.getServer(),
         adminApi.getUsers(),
         adminApi.getChannels(),
       ])
 
-      setOverview(overviewResponse.data)
-      setServer(overviewResponse.data.server)
+      setServer(serverResponse.data)
       setServerForm({
-        name: overviewResponse.data.server.name,
-        description: overviewResponse.data.server.description ?? '',
+        name: serverResponse.data.name,
+        description: serverResponse.data.description ?? '',
       })
       setUsers(usersResponse.data.map(normalizeMember))
       setChannels(channelsResponse.data)
@@ -105,9 +94,11 @@ export default function AdminDashboardPage() {
     setNotice('')
 
     try {
-      const response = await adminApi.updateServer(serverForm)
+      const response = await adminApi.updateServer({
+        name: serverForm.name.trim(),
+        description: serverForm.description.trim() || undefined,
+      })
       setServer(response.data)
-      setOverview((current) => (current ? { ...current, server: response.data } : current))
       setNotice('Server settings saved.')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to save server settings')
@@ -123,22 +114,14 @@ export default function AdminDashboardPage() {
     setNotice('')
 
     try {
-      const response = await adminApi.createUser(userForm)
+      const response = await adminApi.createUser({
+        username: userForm.username.trim(),
+        email: userForm.email.trim() || undefined,
+      })
       setUsers((current) => [normalizeMember(response.data.user), ...current])
       setLastCreatedKey(response.data.accessKey)
-      setOverview((current) =>
-        current
-          ? {
-              ...current,
-              stats: {
-                ...current.stats,
-                members: current.stats.members + 1,
-              },
-            }
-          : current
-      )
-      setUserForm({ username: '', email: '', avatar: '' })
-      setNotice(`Access key generated for ${response.data.user.username}. Use the full key shown on the right.`)
+      setCopiedKey(false)
+      setUserForm({ username: '', email: '' })
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to create member')
     } finally {
@@ -159,7 +142,7 @@ export default function AdminDashboardPage() {
         )
       )
       setLastCreatedKey(response.data.accessKey)
-      setNotice(`Fresh access key generated for ${response.data.user.username}. Use the full key shown on the right.`)
+      setCopiedKey(false)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to regenerate access key')
     } finally {
@@ -174,19 +157,12 @@ export default function AdminDashboardPage() {
     setNotice('')
 
     try {
-      const response = await adminApi.createChannel(channelForm)
+      const response = await adminApi.createChannel({
+        name: channelForm.name.trim(),
+        description: channelForm.description.trim() || undefined,
+        type: channelForm.type,
+      })
       setChannels((current) => [...current, response.data].sort((a, b) => a.position - b.position))
-      setOverview((current) =>
-        current
-          ? {
-              ...current,
-              stats: {
-                ...current.stats,
-                channels: current.stats.channels + 1,
-              },
-            }
-          : current
-      )
       setChannelForm({ name: '', description: '', type: 'TEXT' })
       setNotice(`Channel #${response.data.name} created.`)
     } catch (err: any) {
@@ -204,17 +180,6 @@ export default function AdminDashboardPage() {
     try {
       await adminApi.deleteChannel(channelId)
       setChannels((current) => current.filter((channel) => channel.id !== channelId))
-      setOverview((current) =>
-        current
-          ? {
-              ...current,
-              stats: {
-                ...current.stats,
-                channels: Math.max(0, current.stats.channels - 1),
-              },
-            }
-          : current
-      )
       setNotice('Channel removed.')
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to delete channel')
@@ -225,7 +190,7 @@ export default function AdminDashboardPage() {
 
   async function copyToClipboard(value: string) {
     await navigator.clipboard.writeText(value)
-    setNotice('Copied to clipboard.')
+    setCopiedKey(true)
   }
 
   if (loading) {
@@ -241,17 +206,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="flex h-full bg-black text-white">
-      <aside className="hidden w-[248px] shrink-0 border-r border-border-soft bg-[#030405] lg:flex lg:flex-col">
-        <div className="border-b border-border-soft px-5 py-5">
+      <aside className="hidden w-[224px] shrink-0 border-r border-border-soft bg-[#030405] lg:flex lg:flex-col">
+        <div className="border-b border-border-soft px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-control bg-bg-elevated text-accent">
-              <Zap size={18} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-control bg-bg-elevated text-accent">
+              <Zap size={16} />
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-secondary">
                 Relay Admin
               </p>
-              <p className="mt-1 text-base font-semibold tracking-[-0.03em] text-white">
+              <p className="mt-1 text-sm font-semibold tracking-[-0.03em] text-white">
                 {server?.name ?? 'Relay'}
               </p>
             </div>
@@ -282,35 +247,16 @@ export default function AdminDashboardPage() {
           </a>
         </nav>
 
-        <div className="px-5 py-5">
+        <div className="px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-control bg-bg-elevated text-accent">
               <Shield size={14} />
             </div>
             <div>
               <p className="text-sm font-semibold text-white">{adminUser?.username ?? 'Admin'}</p>
-              <p className="text-xs text-text-secondary">Current admin session</p>
+              <p className="text-xs text-text-secondary">Admin session</p>
             </div>
           </div>
-
-          <div className="mt-6 space-y-3 text-sm">
-            <div className="flex items-center justify-between text-text-secondary">
-              <span>Members</span>
-              <span className="font-medium text-white">{stats.members}</span>
-            </div>
-            <div className="flex items-center justify-between text-text-secondary">
-              <span>Channels</span>
-              <span className="font-medium text-white">{stats.channels}</span>
-            </div>
-            <div className="flex items-center justify-between text-text-secondary">
-              <span>Messages</span>
-              <span className="font-medium text-white">{stats.messages}</span>
-            </div>
-          </div>
-
-          <p className="mt-6 text-xs leading-5 text-text-muted">
-            Provision users, update the server identity, and manage channels from one place.
-          </p>
         </div>
 
         <button
@@ -324,23 +270,19 @@ export default function AdminDashboardPage() {
       <main className="min-w-0 flex-1 bg-[#050607]">
         <div className="flex h-full min-h-0 flex-col">
           <div className="border-b border-border-soft px-4 py-4 sm:px-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-text-muted">
-                  Admin workspace
+                  Workspace
                 </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+                <h1 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-white">
                   {server?.name ?? 'Relay'}
                 </h1>
-                <p className="mt-2 text-sm text-text-secondary">
-                  Clean control over server identity, invited users, and live channels.
-                </p>
               </div>
 
               <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-text-muted">
-                <span>{stats.members} members</span>
-                <span>{stats.channels} channels</span>
-                <span>{stats.messages} messages</span>
+                <span>{users.length} members</span>
+                <span>{channels.length} channels</span>
                 <button onClick={handleLogout} className="secondary-button gap-2 lg:hidden">
                   <LogOut size={15} />
                   Sign out
@@ -361,7 +303,7 @@ export default function AdminDashboardPage() {
             </div>
           ) : null}
 
-          <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-h-0 overflow-y-auto">
               <section id="server" className="border-b border-border-soft px-4 py-5 sm:px-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
@@ -369,36 +311,26 @@ export default function AdminDashboardPage() {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                       Server
                     </p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">Identity and description</h2>
+                    <h2 className="mt-2 text-lg font-semibold text-white">Settings</h2>
                   </div>
                   <p className="text-xs text-text-secondary">
                     Updated {server ? relativeDate(server.updatedAt) : 'never'}
                   </p>
                 </div>
 
-                <form className="mt-5 grid max-w-[760px] gap-4" onSubmit={handleSaveServer}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                        Server name
-                      </label>
-                      <input
-                        className="field"
-                        value={serverForm.name}
-                        onChange={(event) =>
-                          setServerForm((current) => ({ ...current, name: event.target.value }))
-                        }
-                        placeholder="Relay"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                        Server key
-                      </label>
-                      <div className="field flex items-center text-text-secondary">
-                        {server?.key ?? 'primary'}
-                      </div>
-                    </div>
+                <form className="mt-5 grid max-w-[720px] gap-4" onSubmit={handleSaveServer}>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                      Server name
+                    </label>
+                    <input
+                      className="field"
+                      value={serverForm.name}
+                      onChange={(event) =>
+                        setServerForm((current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="Relay"
+                    />
                   </div>
 
                   <div>
@@ -406,7 +338,7 @@ export default function AdminDashboardPage() {
                       Description
                     </label>
                     <textarea
-                      className="textarea-field min-h-[104px]"
+                      className="textarea-field min-h-[96px]"
                       value={serverForm.description}
                       onChange={(event) =>
                         setServerForm((current) => ({ ...current, description: event.target.value }))
@@ -446,9 +378,7 @@ export default function AdminDashboardPage() {
                       />
                     ))
                   ) : (
-                    <div className="px-4 py-6 text-sm text-text-secondary">
-                      No users yet. Create one from the right column.
-                    </div>
+                    <div className="px-4 py-6 text-sm text-text-secondary">No users yet.</div>
                   )}
                 </div>
               </section>
@@ -459,7 +389,7 @@ export default function AdminDashboardPage() {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
                       Channels
                     </p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">Text and voice layout</h2>
+                    <h2 className="mt-2 text-lg font-semibold text-white">Server channels</h2>
                   </div>
                   <p className="text-xs text-text-secondary">{channels.length} active</p>
                 </div>
@@ -476,9 +406,7 @@ export default function AdminDashboardPage() {
                       />
                     ))
                   ) : (
-                    <div className="px-4 py-6 text-sm text-text-secondary">
-                      No channels yet. Create one from the right column.
-                    </div>
+                    <div className="px-4 py-6 text-sm text-text-secondary">No channels yet.</div>
                   )}
                 </div>
               </section>
@@ -487,9 +415,9 @@ export default function AdminDashboardPage() {
             <aside className="min-h-0 overflow-y-auto border-t border-border-soft lg:border-l lg:border-t-0">
               <section className="border-b border-border-soft px-4 py-5 sm:px-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                  Access provisioning
+                  Members
                 </p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Create invited member</h2>
+                <h2 className="mt-2 text-lg font-semibold text-white">Create member</h2>
 
                 <form className="mt-5 grid gap-4" onSubmit={handleCreateUser}>
                   <div>
@@ -520,59 +448,45 @@ export default function AdminDashboardPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                      Avatar URL
-                    </label>
-                    <input
-                      className="field"
-                      value={userForm.avatar}
-                      onChange={(event) =>
-                        setUserForm((current) => ({ ...current, avatar: event.target.value }))
-                      }
-                      placeholder="https://..."
-                    />
-                  </div>
-
                   <button type="submit" disabled={submitting} className="primary-button w-fit gap-2">
                     <KeyRound size={15} />
-                    Generate access key
+                    Create member
                   </button>
                 </form>
               </section>
 
-              <section className="border-b border-border-soft px-4 py-5 sm:px-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Full access key
-                    </p>
-                    <p className="mt-2 text-xs text-text-secondary">
-                      Copy and share the full value below. The member list only shows the short key id.
-                    </p>
-                  </div>
-                  {lastCreatedKey ? (
+              {lastCreatedKey ? (
+                <section className="border-b border-border-soft px-4 py-5 sm:px-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#78d79a]">
+                        Access key
+                      </p>
+                      <p className="mt-2 text-xs text-[#96c9a7]">
+                        Copy the full key and share it with the member.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(lastCreatedKey)}
-                      className="secondary-button h-9 gap-2 px-3"
+                      className="secondary-button h-9 gap-2 border-[#184628] px-3 text-[#78d79a] hover:border-[#27663c] hover:text-[#8ce3aa]"
                     >
                       <Copy size={14} />
-                      Copy
+                      {copiedKey ? 'Copied' : 'Copy'}
                     </button>
-                  ) : null}
-                </div>
+                  </div>
 
-                <div className="mt-4 rounded-control border border-border-soft bg-black px-3 py-3 font-mono text-xs leading-6 text-white">
-                  {lastCreatedKey ?? 'Generate or reset a user key to reveal it here.'}
-                </div>
-              </section>
+                  <div className="mt-4 rounded-control border border-[#184628] bg-[#06110a] px-3 py-3 font-mono text-xs leading-6 text-[#78d79a]">
+                    {lastCreatedKey}
+                  </div>
+                </section>
+              ) : null}
 
               <section className="px-4 py-5 sm:px-6">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                  Channel creation
+                  Channels
                 </p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Add a live channel</h2>
+                <h2 className="mt-2 text-lg font-semibold text-white">Create channel</h2>
 
                 <form className="mt-5 grid gap-4" onSubmit={handleCreateChannel}>
                   <div>
