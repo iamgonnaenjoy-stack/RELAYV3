@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+}
+
+model RelayServer {
+  id          String    @id @default(cuid())
+  key         String    @unique @default("primary")
+  name        String    @default("Relay")
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  channels    Channel[]
+
+  @@map("relay_servers")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  accessKeyId   String         @unique
+  username      String         @unique
+  email         String?        @unique
+  passwordHash  String
+  avatar        String?
+  lastLoginAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  messages      Message[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  serverId    String
+  name        String
+  description String?
+  type        ChannelType @default(TEXT)
+  position    Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  server      RelayServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages    Message[]
+
+  @@map("channels")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  content   String
+  type      MessageType @default(TEXT)
+  edited    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  channelId String
+  channel   Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}

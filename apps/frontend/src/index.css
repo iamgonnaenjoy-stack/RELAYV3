@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables ─────────────────────────────────────── */
+:root {
+  /* Backgrounds — pure OLED */
+  --bg:           #000000;
+  --bg-sidebar:   #060606;
+  --bg-channels:  #0A0A0A;
+  --bg-chat:      #000000;
+  --bg-surface:   #111111;
+  --bg-elevated:  #181818;
+  --bg-hover:     #1C1C1C;
+  --bg-active:    #222222;
+
+  /* Borders */
+  --border:       #222222;
+  --divider:      #141414;
+
+  /* Text */
+  --text-primary:   #E6E8EB;
+  --text-secondary: #A1A6B3;
+  --text-muted:     #6B7280;
+  --text-disabled:  #4B5563;
+
+  /* Accent */
+  --accent:         #5865F2;
+  --accent-hover:   #4752C4;
+  --accent-active:  #3C45A5;
+  --accent-soft:    rgba(88,101,242,0.12);
+  --mention-bg:     rgba(88,101,242,0.18);
+
+  /* Status */
+  --success:  #3BA55D;
+  --error:    #ED4245;
+  --warning:  #FAA61A;
+  --info:     #5865F2;
+
+  /* Radius */
+  --radius-card:  10px;
+  --radius-btn:   8px;
+  --radius-input: 6px;
+
+  /* Transitions */
+  --transition: 150ms ease;
+  --transition-smooth: 200ms ease;
+
+  /* Shadows */
+  --shadow-elevation: 0 4px 20px rgba(0,0,0,0.25);
+  --shadow-focus:     0 0 0 2px rgba(88,101,242,0.35);
+}
+
+/* ─── Base Reset ─────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
+
+/* ─── Selection ──────────────────────────────────────────── */
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+/* ─── Focus Visible ──────────────────────────────────────── */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+/* ─── Utility Classes ────────────────────────────────────── */
+@layer components {
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-accent text-white font-medium
+           px-4 py-2 rounded-btn text-sm
+           transition-all duration-150 ease-out
+           hover:bg-accent-hover active:scale-[0.97]
+           focus-visible:shadow-focus;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent text-text-secondary font-medium
+           px-4 py-2 rounded-btn text-sm
+           transition-all duration-150 ease-out
+           hover:bg-bg-hover hover:text-text-primary active:scale-[0.97];
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-error text-white font-medium
+           px-4 py-2 rounded-btn text-sm
+           transition-all duration-150 ease-out
+           hover:opacity-90 active:scale-[0.97];
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full bg-bg-surface border border-border rounded-input
+           text-text-primary placeholder:text-text-muted
+           px-3 py-2 text-sm
+           transition-all duration-150 ease-out
+           focus:outline-none focus:border-accent focus:shadow-focus;
+  }
+
+  /* Channel item */
+  .channel-item {
+    @apply flex items-center gap-2
+           px-2 py-1.5 rounded-btn
+           text-text-muted text-sm font-medium
+           cursor-pointer transition-all duration-150 ease-out
+           hover:bg-bg-hover hover:text-text-primary;
+  }
+
+  .channel-item.active {
+    background: var(--accent-soft);
+    @apply text-text-primary;
+  }
+
+  /* Surface card */
+  .surface {
+    @apply bg-bg-surface rounded-card border border-border;
+  }
+
+  .elevated {
+    @apply bg-bg-elevated rounded-card border border-border;
+  }
+
+  /* Message hover */
+  .message-row {
+    @apply px-4 py-0.5 rounded
+           transition-colors duration-150 ease-out
+           hover:bg-[#1A1D24];
+  }
+
+  /* Sidebar section label */
+  .section-label {
+    @apply text-2xs font-semibold uppercase tracking-widest
+           text-text-muted px-2 mb-1 mt-4
+           flex items-center justify-between;
+  }
+}

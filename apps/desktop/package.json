@@ -1,0 +1,40 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/main.ts",
+  "scripts": {
+    "dev": "electron .",
+    "build": "tsc && electron-builder",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "electron-is-dev": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.5",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.1.7",
+    "typescript": "^5.6.2"
+  },
+  "build": {
+    "appId": "com.relay.app",
+    "productName": "Relay",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "dist/**/*",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
