@@ -7,6 +7,7 @@ import { z } from 'zod'
 const createMessageSchema = z.object({
   content: z.string().min(1).max(4000),
   channelId: z.string().cuid(),
+  replyToId: z.string().cuid().nullable().optional(),
 })
 
 const editMessageSchema = z.object({

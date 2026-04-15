@@ -8,6 +8,7 @@ interface SendMessagePayload {
   channelId: string
   content: string
   clientId: string
+  replyToId?: string | null
 }
 
 type SendMessageResponse =

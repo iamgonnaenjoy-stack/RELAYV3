@@ -9,11 +9,20 @@ export interface Message {
   clientId?: string | null
   pending?: boolean
   failed?: boolean
-  author: {
-    id: string
-    username: string
-    avatar: string | null
-  }
+  author: MessageAuthor
+  replyTo?: MessageReply | null
+}
+
+export interface MessageAuthor {
+  id: string
+  username: string
+  avatar: string | null
+}
+
+export interface MessageReply {
+  id: string
+  content: string
+  author: MessageAuthor
 }
 
 export interface MessagePage {
@@ -330,7 +339,16 @@ export const useMessageStore = create<MessageState>((set) => ({
           ...state.channels,
           [channelId]: {
             ...channel,
-            items: channel.items.filter((message) => message.id !== messageId),
+            items: channel.items
+              .filter((message) => message.id !== messageId)
+              .map((message) =>
+                message.replyTo?.id === messageId
+                  ? {
+                      ...message,
+                      replyTo: null,
+                    }
+                  : message
+              ),
           },
         },
       }

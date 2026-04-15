@@ -22,7 +22,8 @@ export const messageApi = {
     api.get<MessagePage>('/api/messages', {
       params: { channelId, cursor },
     }),
-  create: (data: { content: string; channelId: string }) => api.post<Message>('/api/messages', data),
+  create: (data: { content: string; channelId: string; replyToId?: string | null }) =>
+    api.post<Message>('/api/messages', data),
   edit: (id: string, content: string) => api.patch<Message>(`/api/messages/${id}`, { content }),
   delete: (id: string) => api.delete(`/api/messages/${id}`),
 }

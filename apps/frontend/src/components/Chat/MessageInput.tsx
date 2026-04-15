@@ -1,16 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { emitTypingStart, emitTypingStop } from '@/lib/socket'
-import { Plus, Send } from 'lucide-react'
+import { Plus, Reply, Send, X } from 'lucide-react'
 import { useChannelStore } from '@/stores/channel.store'
+import type { Message } from '@/stores/message.store'
 
 interface Props {
   channelId: string
   channelName: string
   disabled?: boolean
+  replyingTo: Message | null
+  onCancelReply: () => void
   onSend: (content: string) => Promise<void>
 }
 
-export default function MessageInput({ channelId, channelName, disabled = false, onSend }: Props) {
+export default function MessageInput({
+  channelId,
+  channelName,
+  disabled = false,
+  replyingTo,
+  onCancelReply,
+  onSend,
+}: Props) {
   const draft = useChannelStore((state) => state.draftsByChannel[channelId] ?? '')
   const setDraft = useChannelStore((state) => state.setDraft)
   const clearDraft = useChannelStore((state) => state.clearDraft)
@@ -49,7 +59,15 @@ export default function MessageInput({ channelId, channelName, disabled = false,
 
     textarea.style.height = 'auto'
     textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`
-  }, [channelId, draft])
+  }, [channelId, draft, replyingTo])
+
+  useEffect(() => {
+    if (replyingTo) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    }
+  }, [replyingTo])
 
   useEffect(
     () => () => {
@@ -88,56 +106,78 @@ export default function MessageInput({ channelId, channelName, disabled = false,
   return (
     <div className="shrink-0 px-4 pb-5">
       <div
-        className={`flex items-end gap-2.5 rounded-card border bg-bg-surface px-3.5 py-2.5 transition-colors duration-150 ${
+        className={`rounded-card border bg-bg-surface transition-colors duration-150 ${
           focused ? 'border-[rgba(88,101,242,0.4)]' : 'border-border'
         }`}
       >
-        <button
-          type="button"
-          className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:text-text-secondary"
-          title="Attachments are coming soon"
-          disabled={disabled}
-        >
-          <Plus size={17} />
-        </button>
+        {replyingTo ? (
+          <div className="flex items-start justify-between gap-3 border-b border-divider px-3.5 py-2.5">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-[11px] font-medium text-accent">
+                <Reply size={12} />
+                Replying to {replyingTo.author.username}
+              </p>
+              <p className="mt-1 truncate text-xs text-text-secondary">{replyingTo.content}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelReply}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+              title="Cancel reply"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : null}
 
-        <textarea
-          ref={textareaRef}
-          className="min-h-[24px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-6 text-text-primary outline-none placeholder:text-text-disabled"
-          placeholder={`Message #${channelName}`}
-          value={draft}
-          rows={1}
-          disabled={disabled}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false)
-            stopTyping()
-          }}
-          onChange={(event) => {
-            const nextValue = event.target.value
-            setDraft(channelId, nextValue)
+        <div className="flex items-end gap-2.5 px-3.5 py-2.5">
+          <button
+            type="button"
+            className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:text-text-secondary"
+            title="Attachments are coming soon"
+            disabled={disabled}
+          >
+            <Plus size={17} />
+          </button>
 
-            if (nextValue.trim()) {
-              handleTyping()
-            } else {
+          <textarea
+            ref={textareaRef}
+            className="min-h-[24px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-6 text-text-primary outline-none placeholder:text-text-disabled"
+            placeholder={`Message #${channelName}`}
+            value={draft}
+            rows={1}
+            disabled={disabled}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              setFocused(false)
               stopTyping()
-            }
-          }}
-          onKeyDown={handleKeyDown}
-        />
+            }}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              setDraft(channelId, nextValue)
 
-        <button
-          type="button"
-          onClick={() => void handleSend()}
-          disabled={!canSend || submitting}
-          className={`mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 ${
-            canSend && !submitting
-              ? 'bg-accent text-white hover:bg-accent-hover'
-              : 'cursor-not-allowed bg-transparent text-[#333333]'
-          }`}
-        >
-          <Send size={14} />
-        </button>
+              if (nextValue.trim()) {
+                handleTyping()
+              } else {
+                stopTyping()
+              }
+            }}
+            onKeyDown={handleKeyDown}
+          />
+
+          <button
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={!canSend || submitting}
+            className={`mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 ${
+              canSend && !submitting
+                ? 'bg-accent text-white hover:bg-accent-hover'
+                : 'cursor-not-allowed bg-transparent text-[#333333]'
+            }`}
+          >
+            <Send size={14} />
+          </button>
+        </div>
       </div>
     </div>
   )

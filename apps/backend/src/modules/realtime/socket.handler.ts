@@ -11,6 +11,7 @@ interface SendMessagePayload {
   channelId: string
   content: string
   clientId?: string
+  replyToId?: string | null
 }
 
 type SendMessageAck =
@@ -77,6 +78,7 @@ export function registerSocketHandlers(io: Server, app: FastifyInstance) {
           content: payload.content,
           channelId: payload.channelId,
           authorId: socket.data.userId as string,
+          replyToId: payload.replyToId ?? null,
         })
 
         const broadcastMessage = {

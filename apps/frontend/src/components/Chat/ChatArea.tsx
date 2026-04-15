@@ -2,7 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { useParams } from 'react-router-dom'
 import { Hash, Volume2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
-import { useMessageStore } from '@/stores/message.store'
+import { Message, useMessageStore } from '@/stores/message.store'
 import { useChannelStore } from '@/stores/channel.store'
 import { useShellStore } from '@/stores/shell.store'
 import { messageApi } from '@/lib/services'
@@ -89,6 +89,27 @@ function buildClientId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
+function shouldGroupMessages(previous: Message | undefined, current: Message) {
+  if (!previous || previous.author.id !== current.author.id) {
+    return false
+  }
+
+  if (previous.pending || current.pending || previous.failed || current.failed) {
+    return true
+  }
+
+  const previousTime = new Date(previous.createdAt).getTime()
+  const currentTime = new Date(current.createdAt).getTime()
+
+  if (Number.isNaN(previousTime) || Number.isNaN(currentTime)) {
+    return true
+  }
+
+  return Math.abs(currentTime - previousTime) < 5 * 60 * 1000
+}
+
+type ReplyTarget = Pick<Message, 'id' | 'content' | 'author'>
+
 export default function ChatArea() {
   const { channelId } = useParams<{ channelId: string }>()
   const user = useAuthStore((state) => state.user)
@@ -117,12 +138,15 @@ export default function ChatArea() {
   const [actionBusyId, setActionBusyId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastChannelIdRef = useRef<string | null>(null)
   const lastMessageIdRef = useRef<string | null>(null)
   const restoreScrollOffsetRef = useRef<number | null>(null)
   const loadingOlderRef = useRef(false)
+  const copiedMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const messages = channelState.items
   const hasLoadedMessages = channelState.hasLoaded
@@ -187,7 +211,7 @@ export default function ChatArea() {
   ])
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, replyTarget?: ReplyTarget | null) => {
       if (!channelId || !user) {
         throw new Error('Missing channel context')
       }
@@ -207,12 +231,20 @@ export default function ChatArea() {
           username: user.username,
           avatar: user.avatar,
         },
+        replyTo: replyTarget
+          ? {
+              id: replyTarget.id,
+              content: replyTarget.content,
+              author: replyTarget.author,
+            }
+          : null,
       })
 
       const response = await sendSocketMessage({
         channelId,
         content,
         clientId,
+        replyToId: replyTarget?.id ?? null,
       })
 
       if (!response.ok) {
@@ -227,6 +259,15 @@ export default function ChatArea() {
     [addOptimisticMessage, channelId, markMessageFailed, reconcileIncomingMessage, user]
   )
 
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      const activeReply = replyingTo
+      await sendMessage(content, activeReply)
+      setReplyingTo(null)
+    },
+    [replyingTo, sendMessage]
+  )
+
   useEffect(() => {
     if (!channelId || !isTextChannel) return
 
@@ -238,11 +279,26 @@ export default function ChatArea() {
       leaveChannel(channelId)
       emitTypingStop(channelId)
       clearTypingUsers(channelId)
+      if (copiedMessageTimeoutRef.current) {
+        clearTimeout(copiedMessageTimeoutRef.current)
+        copiedMessageTimeoutRef.current = null
+      }
       setEditingMessageId(null)
       setEditingValue('')
+      setReplyingTo(null)
+      setCopiedMessageId(null)
       setActionError(null)
     }
   }, [channelId, clearTypingUsers, isTextChannel, loadMessages])
+
+  useEffect(
+    () => () => {
+      if (copiedMessageTimeoutRef.current) {
+        clearTimeout(copiedMessageTimeoutRef.current)
+      }
+    },
+    []
+  )
 
   useEffect(() => {
     const scroller = scrollRef.current
@@ -291,6 +347,7 @@ export default function ChatArea() {
   }
 
   function handleStartEdit(messageId: string, content: string) {
+    setReplyingTo(null)
     setEditingMessageId(messageId)
     setEditingValue(content)
     setActionError(null)
@@ -299,6 +356,47 @@ export default function ChatArea() {
   function handleCancelEdit() {
     setEditingMessageId(null)
     setEditingValue('')
+  }
+
+  function handleReplyToMessage(message: Message) {
+    if (message.pending || message.failed) {
+      return
+    }
+
+    setEditingMessageId(null)
+    setEditingValue('')
+    setReplyingTo(message)
+    setActionError(null)
+  }
+
+  async function handleCopyMessage(message: Message) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(message.content)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = message.content
+        textarea.setAttribute('readonly', 'true')
+        textarea.style.position = 'absolute'
+        textarea.style.left = '-9999px'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+
+      if (copiedMessageTimeoutRef.current) {
+        clearTimeout(copiedMessageTimeoutRef.current)
+      }
+
+      setCopiedMessageId(message.id)
+      copiedMessageTimeoutRef.current = setTimeout(() => {
+        setCopiedMessageId((current) => (current === message.id ? null : current))
+      }, 1600)
+      setActionError(null)
+    } catch {
+      setActionError('Unable to copy this message right now.')
+    }
   }
 
   async function handleSaveEdit() {
@@ -333,6 +431,15 @@ export default function ChatArea() {
     if (editingMessageId === messageId) {
       handleCancelEdit()
     }
+    if (replyingTo?.id === messageId) {
+      setReplyingTo(null)
+    }
+
+    if (existingMessage.failed || existingMessage.id.startsWith('temp-')) {
+      setActionBusyId(null)
+      setActionError(null)
+      return
+    }
 
     try {
       await messageApi.delete(messageId)
@@ -354,7 +461,7 @@ export default function ChatArea() {
     removeMessage(channelId, messageId)
 
     try {
-      await sendMessage(failedMessage.content)
+      await sendMessage(failedMessage.content, failedMessage.replyTo ?? null)
     } catch {
       // Error state is already handled by sendMessage.
     }
@@ -476,13 +583,13 @@ export default function ChatArea() {
                 onEditingChange={setEditingValue}
                 onCancelEdit={handleCancelEdit}
                 onSaveEdit={() => void handleSaveEdit()}
+                onCopy={() => void handleCopyMessage(msg)}
+                onReply={() => handleReplyToMessage(msg)}
                 onDelete={() => void handleDeleteMessage(msg.id)}
                 onRetry={() => void handleRetryMessage(msg.id)}
-                isGrouped={
-                  i > 0 &&
-                  messages[i - 1].author.id === msg.author.id &&
-                  new Date(msg.createdAt).getTime() - new Date(messages[i - 1].createdAt).getTime() < 5 * 60 * 1000
-                }
+                copied={copiedMessageId === msg.id}
+                isReplying={replyingTo?.id === msg.id}
+                isGrouped={shouldGroupMessages(messages[i - 1], msg)}
               />
             ))}
           </div>
@@ -499,7 +606,9 @@ export default function ChatArea() {
         channelId={channelId!}
         channelName={channel.name}
         disabled={connectionStatus !== 'connected'}
-        onSend={sendMessage}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+        onSend={handleSendMessage}
       />
     </div>
   )

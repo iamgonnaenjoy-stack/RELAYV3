@@ -1,6 +1,22 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
 const MESSAGE_PAGE_SIZE = 50
+
+const messageInclude = {
+  author: {
+    select: { id: true, username: true, avatar: true },
+  },
+  replyTo: {
+    select: {
+      id: true,
+      content: true,
+      author: {
+        select: { id: true, username: true, avatar: true },
+      },
+    },
+  },
+} satisfies Prisma.MessageInclude
 
 export interface MessagePage {
   items: Awaited<ReturnType<typeof createMessage>>[]
@@ -14,11 +30,7 @@ export async function getMessages(channelId: string, cursor?: string) {
     take: MESSAGE_PAGE_SIZE + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: { createdAt: 'desc' },
-    include: {
-      author: {
-        select: { id: true, username: true, avatar: true },
-      },
-    },
+    include: messageInclude,
   })
 
   const hasMore = messages.length > MESSAGE_PAGE_SIZE
@@ -36,14 +48,29 @@ export async function createMessage(data: {
   content: string
   channelId: string
   authorId: string
+  replyToId?: string | null
 }) {
+  if (data.replyToId) {
+    const replyTarget = await prisma.message.findUnique({
+      where: { id: data.replyToId },
+      select: {
+        id: true,
+        channelId: true,
+      },
+    })
+
+    if (!replyTarget) {
+      throw { statusCode: 404, message: 'Reply target not found' }
+    }
+
+    if (replyTarget.channelId !== data.channelId) {
+      throw { statusCode: 400, message: 'Reply target must be in the same channel' }
+    }
+  }
+
   return prisma.message.create({
     data,
-    include: {
-      author: {
-        select: { id: true, username: true, avatar: true },
-      },
-    },
+    include: messageInclude,
   })
 }
 
@@ -55,9 +82,7 @@ export async function editMessage(id: string, content: string, authorId: string)
   return prisma.message.update({
     where: { id },
     data: { content, edited: true },
-    include: {
-      author: { select: { id: true, username: true, avatar: true } },
-    },
+    include: messageInclude,
   })
 }
 

@@ -88,5 +88,9 @@ model Message {
   authorId  String
   author    User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  replyToId String?
+  replyTo   Message?    @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[]   @relation("MessageReplies")
+
   @@map("messages")
 }
