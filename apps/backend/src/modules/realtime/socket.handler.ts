@@ -10,7 +10,18 @@ interface JoinChannelPayload {
 interface SendMessagePayload {
   channelId: string
   content: string
+  clientId?: string
 }
+
+type SendMessageAck =
+  | {
+      ok: true
+      message: Awaited<ReturnType<typeof createMessage>> & { clientId?: string | null }
+    }
+  | {
+      ok: false
+      error: string
+    }
 
 function getTokenFromSocket(socket: Socket) {
   const authToken = socket.handshake.auth?.token
@@ -60,7 +71,7 @@ export function registerSocketHandlers(io: Server, app: FastifyInstance) {
       console.log(`[Socket] ${socket.id} left channel: ${channelId}`)
     })
 
-    socket.on('send_message', async (payload: SendMessagePayload) => {
+    socket.on('send_message', async (payload: SendMessagePayload, acknowledgement?: (response: SendMessageAck) => void) => {
       try {
         const message = await createMessage({
           content: payload.content,
@@ -68,19 +79,32 @@ export function registerSocketHandlers(io: Server, app: FastifyInstance) {
           authorId: socket.data.userId as string,
         })
 
-        io.to(payload.channelId).emit('receive_message', message)
+        const broadcastMessage = {
+          ...message,
+          clientId: payload.clientId ?? null,
+        }
+
+        io.to(payload.channelId).emit('receive_message', broadcastMessage)
+        acknowledgement?.({
+          ok: true,
+          message: broadcastMessage,
+        })
       } catch (err) {
         socket.emit('error', { message: 'Failed to send message' })
+        acknowledgement?.({
+          ok: false,
+          error: 'Failed to send message',
+        })
         console.error('[Socket] send_message error:', err)
       }
     })
 
     socket.on('typing_start', ({ channelId }: JoinChannelPayload) => {
-      socket.to(channelId).emit('user_typing', { username: socket.data.username })
+      socket.to(channelId).emit('user_typing', { channelId, username: socket.data.username })
     })
 
     socket.on('typing_stop', ({ channelId }: JoinChannelPayload) => {
-      socket.to(channelId).emit('user_stopped_typing', { username: socket.data.username })
+      socket.to(channelId).emit('user_stopped_typing', { channelId, username: socket.data.username })
     })
 
     socket.on('disconnect', () => {

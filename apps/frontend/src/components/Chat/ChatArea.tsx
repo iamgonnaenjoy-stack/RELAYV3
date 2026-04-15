@@ -1,21 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { Hash, Volume2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth.store'
 import { useMessageStore } from '@/stores/message.store'
 import { useChannelStore } from '@/stores/channel.store'
+import { useShellStore } from '@/stores/shell.store'
 import { messageApi } from '@/lib/services'
-import { joinChannel, leaveChannel } from '@/lib/socket'
+import { emitTypingStop, joinChannel, leaveChannel, sendSocketMessage } from '@/lib/socket'
 import MessageItem from './MessageItem'
 import MessageInput from './MessageInput'
 import ChatHeader from './ChatHeader'
-import { Hash, Volume2 } from 'lucide-react'
+import TypingIndicator from './TypingIndicator'
 import Skeleton from '@/components/ui/Skeleton'
 
-const EMPTY_MESSAGES: ReturnType<typeof useMessageStore.getState>['messages'][string] = []
+const EMPTY_CHANNEL_STATE = {
+  items: [],
+  hasLoaded: false,
+  isLoading: false,
+  isLoadingOlder: false,
+  hasMore: false,
+  nextCursor: null,
+  error: null,
+  typingUsers: [],
+} satisfies ReturnType<typeof useMessageStore.getState>['channels'][string]
 
 function ChatAreaSkeleton() {
   return (
-    <div className="route-shell flex h-full flex-col bg-[#000000]">
-      <div className="flex h-12 items-center gap-3 border-b border-[#1a1a1a] px-4">
+    <div className="route-shell flex h-full flex-col bg-bg">
+      <div className="flex h-12 items-center gap-3 border-b border-divider px-4">
         <Skeleton className="h-4 w-4 rounded-full" />
         <Skeleton className="h-4 w-24" />
         <Skeleton className="hidden h-3 w-40 sm:block" />
@@ -44,50 +56,309 @@ function ChatAreaSkeleton() {
   )
 }
 
+function CenterState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="route-shell flex h-full flex-1 items-center justify-center px-6">
+      <div className="flex max-w-[420px] flex-col items-center gap-3 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-bg-surface">
+          {icon}
+        </div>
+        <p className="text-lg font-semibold text-text-primary">{title}</p>
+        <p className="text-sm leading-6 text-text-secondary">{description}</p>
+        {action}
+      </div>
+    </div>
+  )
+}
+
+function buildClientId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 export default function ChatArea() {
   const { channelId } = useParams<{ channelId: string }>()
-  const messages = useMessageStore((s) => {
-    if (!channelId) return EMPTY_MESSAGES
-    return s.messages[channelId] ?? EMPTY_MESSAGES
-  })
-  const hasLoadedMessages = useMessageStore((s) =>
-    channelId ? Object.prototype.hasOwnProperty.call(s.messages, channelId) : false
-  )
-  const setMessages = useMessageStore((s) => s.setMessages)
+  const user = useAuthStore((state) => state.user)
   const channels = useChannelStore((s) => s.channels)
   const channelsLoading = useChannelStore((s) => s.loading)
+  const markChannelRead = useChannelStore((state) => state.markChannelRead)
+  const channelState = useMessageStore((state) =>
+    channelId ? state.channels[channelId] ?? EMPTY_CHANNEL_STATE : EMPTY_CHANNEL_STATE
+  )
+  const startInitialLoad = useMessageStore((state) => state.startInitialLoad)
+  const finishInitialLoad = useMessageStore((state) => state.finishInitialLoad)
+  const failInitialLoad = useMessageStore((state) => state.failInitialLoad)
+  const startLoadingOlder = useMessageStore((state) => state.startLoadingOlder)
+  const finishLoadingOlder = useMessageStore((state) => state.finishLoadingOlder)
+  const failLoadingOlder = useMessageStore((state) => state.failLoadingOlder)
+  const addOptimisticMessage = useMessageStore((state) => state.addOptimisticMessage)
+  const reconcileIncomingMessage = useMessageStore((state) => state.reconcileIncomingMessage)
+  const markMessageFailed = useMessageStore((state) => state.markMessageFailed)
+  const updateMessage = useMessageStore((state) => state.updateMessage)
+  const removeMessage = useMessageStore((state) => state.deleteMessage)
+  const clearTypingUsers = useMessageStore((state) => state.clearTypingUsers)
+  const connectionStatus = useShellStore((state) => state.connectionStatus)
   const channel = channels.find((c) => c.id === channelId)
   const isTextChannel = channel?.type === 'TEXT'
-  const [loading, setLoading] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState('')
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const lastChannelIdRef = useRef<string | null>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const restoreScrollOffsetRef = useRef<number | null>(null)
+  const loadingOlderRef = useRef(false)
+
+  const messages = channelState.items
+  const hasLoadedMessages = channelState.hasLoaded
+  const typingUsers = useMemo(
+    () => channelState.typingUsers.filter((username) => username !== user?.username),
+    [channelState.typingUsers, user?.username]
+  )
+
+  const loadMessages = useCallback(async () => {
+    if (!channelId) return
+
+    startInitialLoad(channelId)
+    try {
+      const response = await messageApi.getByChannel(channelId)
+      finishInitialLoad(channelId, response.data)
+      markChannelRead(channelId)
+    } catch (error: any) {
+      failInitialLoad(
+        channelId,
+        error.response?.data?.error ?? 'Unable to load messages for this channel.'
+      )
+    }
+  }, [channelId, failInitialLoad, finishInitialLoad, markChannelRead, startInitialLoad])
+
+  const loadOlderMessages = useCallback(async () => {
+    if (
+      !channelId ||
+      !channelState.nextCursor ||
+      !channelState.hasMore ||
+      channelState.isLoadingOlder ||
+      loadingOlderRef.current
+    ) {
+      return
+    }
+
+    loadingOlderRef.current = true
+    const scroller = scrollRef.current
+    if (scroller) {
+      restoreScrollOffsetRef.current = scroller.scrollHeight - scroller.scrollTop
+    }
+
+    startLoadingOlder(channelId)
+    try {
+      const response = await messageApi.getByChannel(channelId, channelState.nextCursor)
+      finishLoadingOlder(channelId, response.data)
+    } catch (error: any) {
+      failLoadingOlder(
+        channelId,
+        error.response?.data?.error ?? 'Unable to load older messages.'
+      )
+    } finally {
+      loadingOlderRef.current = false
+    }
+  }, [
+    channelId,
+    channelState.hasMore,
+    channelState.isLoadingOlder,
+    channelState.nextCursor,
+    failLoadingOlder,
+    finishLoadingOlder,
+    startLoadingOlder,
+  ])
+
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!channelId || !user) {
+        throw new Error('Missing channel context')
+      }
+
+      const clientId = buildClientId()
+      addOptimisticMessage(channelId, {
+        id: `temp-${clientId}`,
+        channelId,
+        clientId,
+        content,
+        createdAt: new Date().toISOString(),
+        edited: false,
+        pending: true,
+        failed: false,
+        author: {
+          id: user.id,
+          username: user.username,
+          avatar: user.avatar,
+        },
+      })
+
+      const response = await sendSocketMessage({
+        channelId,
+        content,
+        clientId,
+      })
+
+      if (!response.ok) {
+        markMessageFailed(channelId, clientId)
+        setActionError(response.error)
+        throw new Error(response.error)
+      }
+
+      reconcileIncomingMessage(channelId, response.message)
+      setActionError(null)
+    },
+    [addOptimisticMessage, channelId, markMessageFailed, reconcileIncomingMessage, user]
+  )
 
   useEffect(() => {
     if (!channelId || !isTextChannel) return
 
-    let active = true
     joinChannel(channelId)
-    setLoading(!hasLoadedMessages)
-    messageApi
-      .getByChannel(channelId)
-      .then((res) => {
-        if (!active) return
-        setMessages(channelId, res.data)
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
-      })
+    clearTypingUsers(channelId)
+    void loadMessages()
 
     return () => {
-      active = false
       leaveChannel(channelId)
+      emitTypingStop(channelId)
+      clearTypingUsers(channelId)
+      setEditingMessageId(null)
+      setEditingValue('')
+      setActionError(null)
     }
-  }, [channelId, hasLoadedMessages, isTextChannel, setMessages])
+  }, [channelId, clearTypingUsers, isTextChannel, loadMessages])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const scroller = scrollRef.current
+    if (!scroller || !channelId) return
+
+    if (restoreScrollOffsetRef.current !== null) {
+      scroller.scrollTop = scroller.scrollHeight - restoreScrollOffsetRef.current
+      restoreScrollOffsetRef.current = null
+      lastMessageIdRef.current = messages[messages.length - 1]?.id ?? null
+      return
+    }
+
+    const latestMessageId = messages[messages.length - 1]?.id ?? null
+    const channelChanged = lastChannelIdRef.current !== channelId
+
+    if (channelChanged) {
+      lastChannelIdRef.current = channelId
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+      })
+    } else if (latestMessageId && latestMessageId !== lastMessageIdRef.current) {
+      const distanceFromBottom =
+        scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+      const latestMessage = messages[messages.length - 1]
+
+      if (
+        distanceFromBottom < 120 ||
+        latestMessage?.author.id === user?.id ||
+        latestMessage?.pending
+      ) {
+        requestAnimationFrame(() => {
+          bottomRef.current?.scrollIntoView({
+            behavior: latestMessage?.pending ? 'auto' : 'smooth',
+          })
+        })
+      }
+    }
+
+    lastMessageIdRef.current = latestMessageId
+  }, [channelId, messages, user?.id])
+
+  function handleScroll(event: React.UIEvent<HTMLDivElement>) {
+    if (event.currentTarget.scrollTop <= 96) {
+      void loadOlderMessages()
+    }
+  }
+
+  function handleStartEdit(messageId: string, content: string) {
+    setEditingMessageId(messageId)
+    setEditingValue(content)
+    setActionError(null)
+  }
+
+  function handleCancelEdit() {
+    setEditingMessageId(null)
+    setEditingValue('')
+  }
+
+  async function handleSaveEdit() {
+    if (!channelId || !editingMessageId || editingValue.trim() === '') return
+
+    setActionBusyId(editingMessageId)
+    try {
+      const response = await messageApi.edit(editingMessageId, editingValue.trim())
+      updateMessage(channelId, response.data)
+      setEditingMessageId(null)
+      setEditingValue('')
+      setActionError(null)
+    } catch (error: any) {
+      setActionError(error.response?.data?.error ?? 'Unable to update this message.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
+  async function handleDeleteMessage(messageId: string) {
+    if (!channelId) return
+
+    const existingMessage = messages.find((message) => message.id === messageId)
+    if (!existingMessage) return
+
+    if (!window.confirm('Delete this message?')) {
+      return
+    }
+
+    setActionBusyId(messageId)
+    removeMessage(channelId, messageId)
+    if (editingMessageId === messageId) {
+      handleCancelEdit()
+    }
+
+    try {
+      await messageApi.delete(messageId)
+      setActionError(null)
+    } catch (error: any) {
+      reconcileIncomingMessage(channelId, existingMessage)
+      setActionError(error.response?.data?.error ?? 'Unable to delete this message.')
+    } finally {
+      setActionBusyId(null)
+    }
+  }
+
+  async function handleRetryMessage(messageId: string) {
+    if (!channelId) return
+
+    const failedMessage = messages.find((message) => message.id === messageId)
+    if (!failedMessage) return
+
+    removeMessage(channelId, messageId)
+
+    try {
+      await sendMessage(failedMessage.content)
+    } catch {
+      // Error state is already handled by sendMessage.
+    }
+  }
 
   if (channelsLoading && channelId) {
     return <ChatAreaSkeleton />
@@ -95,50 +366,87 @@ export default function ChatArea() {
 
   if (!channel) {
     return (
-      <div className="route-shell" style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: '#000000' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#555' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#111', border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Hash size={24} color="#444" />
-          </div>
-          <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 16 }}>Channel unavailable</p>
-          <p style={{ color: '#555', fontSize: 13 }}>Pick another text channel from the sidebar.</p>
-        </div>
-      </div>
+      <CenterState
+        icon={<Hash size={24} className="text-text-disabled" />}
+        title="Channel unavailable"
+        description="Pick another channel from the sidebar to continue."
+      />
     )
   }
 
   if (!isTextChannel) {
     return (
-      <div className="route-shell" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#000000' }}>
+      <div className="route-shell flex h-full flex-col bg-bg">
         <ChatHeader channel={channel} />
+        <CenterState
+          icon={<Volume2 size={26} className="text-accent" />}
+          title="Voice channels are coming soon"
+          description={`#${channel.name} is ready in the server, but voice calling is still under construction.`}
+        />
+      </div>
+    )
+  }
 
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ display: 'flex', maxWidth: 360, flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#111111', border: '1px solid #222222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Volume2 size={26} color="#5865F2" />
-            </div>
-            <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 18 }}>Voice channels are coming soon</p>
-            <p style={{ color: '#5B6372', fontSize: 14, lineHeight: 1.6 }}>
-              #{channel.name} is ready in the server, but voice calling is still under construction.
-            </p>
-          </div>
-        </div>
+  if (channelState.error && !hasLoadedMessages && !channelState.isLoading) {
+    return (
+      <div className="route-shell flex h-full flex-col bg-bg">
+        <ChatHeader channel={channel} />
+        <CenterState
+          icon={<Hash size={24} className="text-text-disabled" />}
+          title="Messages could not be loaded"
+          description={channelState.error}
+          action={
+            <button type="button" onClick={() => void loadMessages()} className="btn-primary mt-2">
+              Reload messages
+            </button>
+          }
+        />
       </div>
     )
   }
 
   return (
-    <div className="route-shell" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#000000' }}>
+    <div className="route-shell flex h-full flex-col bg-bg">
       <ChatHeader channel={channel} />
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', paddingTop: 16 }}>
-        {loading && !hasLoadedMessages ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '4px 16px 0' }}>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex flex-1 flex-col overflow-y-auto pt-4"
+      >
+        {channelState.hasMore || channelState.isLoadingOlder || (channelState.error && hasLoadedMessages) ? (
+          <div className="sticky top-0 z-10 flex justify-center px-4 pb-3">
+            {channelState.isLoadingOlder ? (
+              <div className="rounded-full border border-border bg-bg-surface px-3 py-1 text-xs text-text-muted">
+                Loading older messages...
+              </div>
+            ) : channelState.error && hasLoadedMessages ? (
+              <button
+                type="button"
+                onClick={() => void loadOlderMessages()}
+                className="rounded-full border border-border bg-bg-surface px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+              >
+                Retry loading older messages
+              </button>
+            ) : channelState.hasMore ? (
+              <button
+                type="button"
+                onClick={() => void loadOlderMessages()}
+                className="rounded-full border border-border bg-bg-surface px-3 py-1 text-xs text-text-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+              >
+                Load older messages
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {channelState.isLoading && !hasLoadedMessages ? (
+          <div className="flex flex-col gap-5 px-4">
             {Array.from({ length: 6 }, (_, index) => (
-              <div key={index} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div key={index} className="flex items-start gap-4">
                 <Skeleton className="h-9 w-9 rounded-full" />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="flex flex-1 flex-col gap-2">
+                  <div className="flex items-center gap-2">
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-3 w-16" />
                   </div>
@@ -149,19 +457,27 @@ export default function ChatArea() {
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#111', border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Hash size={24} color="#444" />
-            </div>
-            <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 16 }}>Welcome to #{channel.name}</p>
-            <p style={{ color: '#555', fontSize: 13 }}>This is the beginning of #{channel.name}</p>
-          </div>
+          <CenterState
+            icon={<Hash size={24} className="text-text-disabled" />}
+            title={`Welcome to #${channel.name}`}
+            description={`This is the beginning of #${channel.name}. Say hello when you're ready.`}
+          />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div className="flex flex-col">
             {messages.map((msg, i) => (
               <MessageItem
                 key={msg.id}
                 message={msg}
+                isOwnMessage={msg.author.id === user?.id}
+                isEditing={editingMessageId === msg.id}
+                editingValue={editingMessageId === msg.id ? editingValue : msg.content}
+                actionBusy={actionBusyId === msg.id}
+                onStartEdit={() => handleStartEdit(msg.id, msg.content)}
+                onEditingChange={setEditingValue}
+                onCancelEdit={handleCancelEdit}
+                onSaveEdit={() => void handleSaveEdit()}
+                onDelete={() => void handleDeleteMessage(msg.id)}
+                onRetry={() => void handleRetryMessage(msg.id)}
                 isGrouped={
                   i > 0 &&
                   messages[i - 1].author.id === msg.author.id &&
@@ -174,7 +490,17 @@ export default function ChatArea() {
         <div ref={bottomRef} />
       </div>
 
-      <MessageInput channelId={channelId!} channelName={channel.name} />
+      {actionError ? (
+        <div className="px-4 pb-2 text-xs text-error">{actionError}</div>
+      ) : null}
+
+      <TypingIndicator users={typingUsers} />
+      <MessageInput
+        channelId={channelId!}
+        channelName={channel.name}
+        disabled={connectionStatus !== 'connected'}
+        onSend={sendMessage}
+      />
     </div>
   )
 }

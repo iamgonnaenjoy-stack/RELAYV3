@@ -10,6 +10,7 @@ import { authRoutes } from './modules/auth/auth.routes'
 import { channelRoutes } from './modules/channels/channel.routes'
 import { messageRoutes } from './modules/messages/message.routes'
 import { registerSocketHandlers } from './modules/realtime/socket.handler'
+import { setRealtimeServer } from './modules/realtime/socket.state'
 import { serverRoutes } from './modules/server/server.routes'
 
 function getAllowedOrigins() {
@@ -69,9 +70,11 @@ export async function buildApp() {
     },
   })
 
+  setRealtimeServer(io)
   registerSocketHandlers(io, fastify)
 
   fastify.addHook('onClose', async () => {
+    setRealtimeServer(null)
     await prisma.$disconnect()
   })
 

@@ -95,6 +95,17 @@ const Shuffle: React.FC<ShuffleProps> = ({
       const el = ref.current as HTMLElement;
       const start = scrollTriggerStart;
 
+      const lockLayout = () => {
+        const { width, height } = el.getBoundingClientRect();
+        el.style.minWidth = `${width}px`;
+        el.style.minHeight = `${height}px`;
+      };
+
+      const unlockLayout = () => {
+        el.style.minWidth = '';
+        el.style.minHeight = '';
+      };
+
       const removeHover = () => {
         if (hoverHandlerRef.current && ref.current) {
           ref.current.removeEventListener('mouseenter', hoverHandlerRef.current);
@@ -155,7 +166,7 @@ const Shuffle: React.FC<ShuffleProps> = ({
           Object.assign(wrap.style, {
             width: w + 'px',
             height: shuffleDirection === 'up' || shuffleDirection === 'down' ? h + 'px' : 'auto',
-            verticalAlign: 'bottom'
+            verticalAlign: 'top'
           });
 
           const inner = document.createElement('span');
@@ -280,6 +291,7 @@ const Shuffle: React.FC<ShuffleProps> = ({
             playingRef.current = false;
             if (!loop) {
               cleanupToStill();
+              unlockLayout();
               if (colorTo) gsap.set(strips, { color: colorTo });
               onShuffleComplete?.();
               armHover();
@@ -338,6 +350,7 @@ const Shuffle: React.FC<ShuffleProps> = ({
         removeHover();
         const handler = () => {
           if (playingRef.current) return;
+          lockLayout();
           build();
           if (scrambleCharset) randomizeScrambles();
           play();
@@ -347,6 +360,7 @@ const Shuffle: React.FC<ShuffleProps> = ({
       };
 
       const create = () => {
+        lockLayout();
         build();
         if (scrambleCharset) randomizeScrambles();
         play();
@@ -364,6 +378,7 @@ const Shuffle: React.FC<ShuffleProps> = ({
       return () => {
         st.kill();
         removeHover();
+        unlockLayout();
         teardown();
         setReady(false);
       };
@@ -394,21 +409,14 @@ const Shuffle: React.FC<ShuffleProps> = ({
     }
   );
 
-  const baseTw = 'inline-block whitespace-normal break-words will-change-transform uppercase text-2xl leading-none';
-  const userHasFont = useMemo(() => className && /font[-[]/i.test(className), [className]);
-
-  const fallbackFont = useMemo(
-    () => (userHasFont ? {} : { fontFamily: `'Press Start 2P', sans-serif` }),
-    [userHasFont]
-  );
+  const baseTw = 'inline-block whitespace-normal break-words align-top will-change-transform leading-none';
 
   const commonStyle = useMemo(
     () => ({
       textAlign,
-      ...fallbackFont,
       ...style
     }),
-    [textAlign, fallbackFont, style]
+    [textAlign, style]
   );
 
   const classes = useMemo(

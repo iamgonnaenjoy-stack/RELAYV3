@@ -13,8 +13,9 @@ interface AuthState {
   user: User | null
   token: string | null
   hydrated: boolean
+  logoutReason: 'session-expired' | 'signed-out' | null
   setAuth: (user: User, token: string) => void
-  clearAuth: () => void
+  clearAuth: (reason?: AuthState['logoutReason']) => void
   setHydrated: (hydrated: boolean) => void
 }
 
@@ -24,8 +25,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       hydrated: false,
-      setAuth: (user, token) => set({ user, token }),
-      clearAuth: () => set({ user: null, token: null }),
+      logoutReason: null,
+      setAuth: (user, token) => set({ user, token, logoutReason: null }),
+      clearAuth: (reason = null) => set({ user: null, token: null, logoutReason: reason }),
       setHydrated: (hydrated) => set({ hydrated }),
     }),
     {

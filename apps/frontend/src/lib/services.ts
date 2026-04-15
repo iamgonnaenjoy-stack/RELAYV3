@@ -1,6 +1,6 @@
 import { api } from '@/lib/api'
 import { Channel } from '@/stores/channel.store'
-import { Message } from '@/stores/message.store'
+import { Message, MessagePage } from '@/stores/message.store'
 import { RelayServer } from '@/stores/server.store'
 
 export const authApi = {
@@ -19,7 +19,7 @@ export const channelApi = {
 
 export const messageApi = {
   getByChannel: (channelId: string, cursor?: string) =>
-    api.get<Message[]>('/api/messages', {
+    api.get<MessagePage>('/api/messages', {
       params: { channelId, cursor },
     }),
   create: (data: { content: string; channelId: string }) => api.post<Message>('/api/messages', data),

@@ -20,7 +20,10 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      useAuthStore.getState().clearAuth()
+      const token = useAuthStore.getState().token
+      useAuthStore
+        .getState()
+        .clearAuth(token ? 'session-expired' : null)
     }
     return Promise.reject(err)
   }

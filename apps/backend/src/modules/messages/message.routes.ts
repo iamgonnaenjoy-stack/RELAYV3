@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../../middleware/auth.middleware'
 import { getMessages, createMessage, editMessage, deleteMessage } from './message.service'
+import { getRealtimeServer } from '../realtime/socket.state'
 import { z } from 'zod'
 
 const createMessageSchema = z.object({
@@ -55,6 +56,7 @@ export async function messageRoutes(app: FastifyInstance) {
       const { id } = req.params as { id: string }
       const payload = req.user as { sub: string }
       const message = await editMessage(id, body.data.content, payload.sub)
+      getRealtimeServer()?.to(message.channelId).emit('message_updated', message)
       return reply.send(message)
     } catch (err: any) {
       return reply.code(err.statusCode || 500).send({ error: err.message })
@@ -66,7 +68,10 @@ export async function messageRoutes(app: FastifyInstance) {
     try {
       const { id } = req.params as { id: string }
       const payload = req.user as { sub: string }
-      await deleteMessage(id, payload.sub)
+      const deletedMessage = await deleteMessage(id, payload.sub)
+      getRealtimeServer()
+        ?.to(deletedMessage.channelId)
+        .emit('message_deleted', { channelId: deletedMessage.channelId, messageId: deletedMessage.id })
       return reply.code(204).send()
     } catch (err: any) {
       return reply.code(err.statusCode || 500).send({ error: err.message })

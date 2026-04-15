@@ -1,8 +1,10 @@
 import { startTransition, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import clsx from 'clsx'
 import { ChevronDown, Hash, LogOut, Volume2, Zap } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Channel, useChannelStore } from '@/stores/channel.store'
+import { useShellStore } from '@/stores/shell.store'
 import { useServerStore } from '@/stores/server.store'
 import { useMessageStore } from '@/stores/message.store'
 import Skeleton from '@/components/ui/Skeleton'
@@ -15,6 +17,9 @@ function ChannelIcon({ type }: { type: Channel['type'] }) {
 export default function ChannelList() {
   const channels = useChannelStore((state) => state.channels)
   const channelsLoading = useChannelStore((state) => state.loading)
+  const activeChannelId = useChannelStore((state) => state.activeChannelId)
+  const unreadByChannel = useChannelStore((state) => state.unreadByChannel)
+  const draftsByChannel = useChannelStore((state) => state.draftsByChannel)
   const resetChannels = useChannelStore((state) => state.resetChannels)
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
@@ -22,12 +27,13 @@ export default function ChannelList() {
   const serverLoading = useServerStore((state) => state.loading)
   const resetServer = useServerStore((state) => state.resetServer)
   const resetMessages = useMessageStore((state) => state.resetMessages)
-  const location = useLocation()
+  const bootstrapError = useShellStore((state) => state.bootstrapError)
+  const connectionStatus = useShellStore((state) => state.connectionStatus)
+  const resetShell = useShellStore((state) => state.resetShell)
   const navigate = useNavigate()
   const [textOpen, setTextOpen] = useState(true)
   const [voiceOpen, setVoiceOpen] = useState(true)
 
-  const activeChannelId = location.pathname.match(/\/app\/channel\/([^/]+)/)?.[1] ?? null
   const textChannels = useMemo(
     () => channels.filter((channel) => channel.type === 'TEXT'),
     [channels]
@@ -56,116 +62,71 @@ export default function ChannelList() {
     resetMessages()
     resetChannels()
     resetServer()
-    clearAuth()
+    resetShell()
+    clearAuth('signed-out')
     navigate('/')
   }
 
+  const presenceCopy =
+    connectionStatus === 'connected'
+      ? 'Online'
+      : connectionStatus === 'connecting'
+        ? 'Connecting...'
+        : connectionStatus === 'reconnecting'
+          ? 'Reconnecting...'
+          : connectionStatus === 'disconnected'
+            ? 'Offline'
+            : 'Online'
+
+  const presenceDotClass =
+    connectionStatus === 'connected'
+      ? 'bg-success'
+      : connectionStatus === 'disconnected'
+        ? 'bg-error'
+        : 'bg-warning'
+
   return (
-    <aside
-      style={{
-        width: 240,
-        background: '#080808',
-        borderRight: '1px solid #1a1a1a',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-      }}
-    >
+    <aside className="flex h-full w-[240px] shrink-0 flex-col border-r border-divider bg-bg-sidebar">
       <button
         type="button"
         onClick={handleServerClick}
-        style={{
-          height: 48,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 16px',
-          borderBottom: '1px solid #1a1a1a',
-          flexShrink: 0,
-          width: '100%',
-          background: 'transparent',
-          borderLeft: 'none',
-          borderRight: 'none',
-          borderTop: 'none',
-          cursor: 'pointer',
-        }}
+        className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-divider px-4 text-left transition-colors duration-150 hover:bg-bg-hover"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 6,
-              background: '#5865F2',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Zap size={11} color="white" strokeWidth={2.5} />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-accent text-white">
+            <Zap size={11} strokeWidth={2.5} />
           </div>
           {serverLoading && !server ? (
             <Skeleton className="h-[14px] w-[112px]" />
           ) : (
-            <span
-              style={{
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: 14,
-                letterSpacing: '-0.01em',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
+            <span className="truncate text-sm font-semibold tracking-[-0.01em] text-text-primary">
               {server?.name ?? 'Relay'}
             </span>
           )}
         </div>
-        <ChevronDown size={14} color="#555" />
+        <ChevronDown size={14} className="text-text-disabled" />
       </button>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 8px' }}>
+      <div className="flex-1 overflow-y-auto px-2 py-3">
         <button
+          type="button"
           onClick={() => setTextOpen((value) => !value)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            width: '100%',
-            padding: '4px 8px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: '#555',
-            marginBottom: 2,
-          }}
-          className="group hover:text-[#888] transition-colors duration-150"
+          className="group mb-0.5 flex w-full items-center gap-1 px-2 py-1 text-text-disabled transition-colors duration-150 hover:text-text-secondary"
         >
           <ChevronDown
             size={11}
-            style={{
-              transform: textOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-              transition: 'transform 150ms',
-              flexShrink: 0,
-            }}
+            className={clsx(
+              'shrink-0 transition-transform duration-150',
+              textOpen ? 'rotate-0' : '-rotate-90'
+            )}
           />
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              flex: 1,
-              textAlign: 'left',
-            }}
-          >
+          <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em]">
             Text Channels
           </span>
         </button>
 
         {textOpen && showChannelSkeletons && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 8px 0' }}>
+          <div className="flex flex-col gap-1.5 px-2 pt-1">
             <Skeleton className="h-8 w-full rounded-[6px]" />
             <Skeleton className="h-8 w-[88%] rounded-[6px]" />
             <Skeleton className="h-8 w-[76%] rounded-[6px]" />
@@ -176,89 +137,61 @@ export default function ChannelList() {
           !showChannelSkeletons &&
           textChannels.map((channel) => {
             const isActive = activeChannelId === channel.id
+            const unreadCount = unreadByChannel[channel.id] ?? 0
+            const hasDraft = Boolean(draftsByChannel[channel.id]?.trim())
             return (
               <button
                 key={channel.id}
+                type="button"
                 onClick={() => handleChannelClick(channel)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  width: '100%',
-                  padding: '6px 8px',
-                  marginBottom: 1,
-                  borderRadius: 6,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: isActive ? 'rgba(88,101,242,0.15)' : 'transparent',
-                  color: isActive ? '#ffffff' : '#666666',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  textAlign: 'left',
-                  transition: 'all 150ms',
-                }}
-                onMouseEnter={(event) => {
-                  if (!isActive) {
-                    event.currentTarget.style.background = '#111111'
-                    event.currentTarget.style.color = '#aaaaaa'
-                  }
-                }}
-                onMouseLeave={(event) => {
-                  if (!isActive) {
-                    event.currentTarget.style.background = 'transparent'
-                    event.currentTarget.style.color = '#666666'
-                  }
-                }}
+                className={clsx(
+                  'mb-0.5 flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left text-sm font-medium transition-colors duration-150',
+                  isActive
+                    ? 'bg-accent-soft text-text-primary'
+                    : unreadCount > 0
+                      ? 'text-text-primary hover:bg-bg-hover'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                )}
               >
                 <ChannelIcon type={channel.type} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span className="min-w-0 flex-1 truncate">
                   {channel.name}
                 </span>
+                {!isActive && unreadCount > 0 ? (
+                  <span className="rounded-full bg-text-primary px-1.5 py-0.5 text-[10px] font-semibold text-bg">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : null}
+                {!isActive && unreadCount === 0 && hasDraft ? (
+                  <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-text-disabled">
+                    Draft
+                  </span>
+                ) : null}
               </button>
             )
           })}
 
         {(voiceChannels.length > 0 || showChannelSkeletons) && (
-          <div style={{ marginTop: 16 }}>
+          <div className="mt-4">
             <button
+              type="button"
               onClick={() => setVoiceOpen((value) => !value)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                width: '100%',
-                padding: '4px 8px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#555',
-                marginBottom: 2,
-              }}
+              className="mb-0.5 flex w-full items-center gap-1 px-2 py-1 text-text-disabled transition-colors duration-150 hover:text-text-secondary"
             >
               <ChevronDown
                 size={11}
-                style={{
-                  transform: voiceOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                  transition: 'transform 150ms',
-                  flexShrink: 0,
-                }}
+                className={clsx(
+                  'shrink-0 transition-transform duration-150',
+                  voiceOpen ? 'rotate-0' : '-rotate-90'
+                )}
               />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  flex: 1,
-                  textAlign: 'left',
-                }}
-              >
+              <span className="flex-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em]">
                 Voice Channels
               </span>
             </button>
 
             {voiceOpen && showChannelSkeletons && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 8px 0' }}>
+              <div className="flex flex-col gap-1.5 px-2 pt-1">
                 <Skeleton className="h-8 w-[82%] rounded-[6px]" />
                 <Skeleton className="h-8 w-[70%] rounded-[6px]" />
               </div>
@@ -268,44 +201,30 @@ export default function ChannelList() {
               !showChannelSkeletons &&
               voiceChannels.map((channel) => {
                 const isActive = activeChannelId === channel.id
+                const unreadCount = unreadByChannel[channel.id] ?? 0
                 return (
                   <button
                     key={channel.id}
+                    type="button"
                     onClick={() => handleChannelClick(channel)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      width: '100%',
-                      padding: '6px 8px',
-                      marginBottom: 1,
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: isActive ? 'rgba(88,101,242,0.15)' : 'transparent',
-                      color: isActive ? '#ffffff' : '#666666',
-                      fontSize: 14,
-                      fontWeight: 500,
-                      textAlign: 'left',
-                      transition: 'all 150ms',
-                    }}
-                    onMouseEnter={(event) => {
-                      if (!isActive) {
-                        event.currentTarget.style.background = '#111111'
-                        event.currentTarget.style.color = '#aaaaaa'
-                      }
-                    }}
-                    onMouseLeave={(event) => {
-                      if (!isActive) {
-                        event.currentTarget.style.background = 'transparent'
-                        event.currentTarget.style.color = '#666666'
-                      }
-                    }}
+                    className={clsx(
+                      'mb-0.5 flex w-full items-center gap-2 rounded-btn px-2 py-1.5 text-left text-sm font-medium transition-colors duration-150',
+                      isActive
+                        ? 'bg-accent-soft text-text-primary'
+                        : unreadCount > 0
+                          ? 'text-text-primary hover:bg-bg-hover'
+                          : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                    )}
                   >
                     <ChannelIcon type={channel.type} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="min-w-0 flex-1 truncate">
                       {channel.name}
                     </span>
+                    {!isActive && unreadCount > 0 ? (
+                      <span className="rounded-full bg-text-primary px-1.5 py-0.5 text-[10px] font-semibold text-bg">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : null}
                   </button>
                 )
               })}
@@ -313,84 +232,32 @@ export default function ChannelList() {
         )}
 
         {!channelsLoading && channels.length === 0 && (
-          <p style={{ padding: '10px 8px', fontSize: 12, color: '#4B5563' }}>
-            No channels are available yet.
+          <p className="px-2 py-2.5 text-xs text-text-disabled">
+            {bootstrapError ? 'Channels could not be loaded.' : 'No channels are available yet.'}
           </p>
         )}
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 12px',
-          borderTop: '1px solid #1a1a1a',
-          background: '#000000',
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: '#111111',
-            border: '1px solid #222222',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: '#888', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-divider bg-bg px-3 py-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-bg-surface">
+          <span className="text-xs font-bold uppercase text-text-secondary">
             {user?.username?.[0] ?? '?'}
           </span>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p
-            style={{
-              color: '#ffffff',
-              fontSize: 13,
-              fontWeight: 600,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              lineHeight: 1.3,
-            }}
-          >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold leading-[1.3] text-text-primary">
             {user?.username}
           </p>
-          <p style={{ color: '#444', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1.3 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3BA55D', display: 'inline-block' }} />
-            Online
+          <p className="flex items-center gap-1.5 text-[11px] leading-[1.3] text-text-disabled">
+            <span className={clsx('inline-block h-1.5 w-1.5 rounded-full', presenceDotClass)} />
+            {presenceCopy}
           </p>
         </div>
         <button
+          type="button"
           onClick={handleLogout}
           title="Sign out"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 6,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: '#555',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'all 150ms',
-          }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.color = '#ED4245'
-            event.currentTarget.style.background = 'rgba(237,66,69,0.1)'
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.color = '#555'
-            event.currentTarget.style.background = 'none'
-          }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-[rgba(237,66,69,0.1)] hover:text-error"
         >
           <LogOut size={14} />
         </button>

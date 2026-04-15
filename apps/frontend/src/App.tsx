@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth.store'
 
+import AppErrorBoundary from '@/components/ui/AppErrorBoundary'
 import AccessPage from '@/pages/Access/AccessPage'
 import AppLayout from '@/pages/App/AppLayout'
 
@@ -22,17 +23,19 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={token ? <Navigate to="/app" replace /> : <AccessPage />} />
-      <Route
-        path="/app/*"
-        element={
-          <PrivateRoute>
-            <AppLayout />
-          </PrivateRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <AppErrorBoundary>
+      <Routes>
+        <Route path="/" element={token ? <Navigate to="/app" replace /> : <AccessPage />} />
+        <Route
+          path="/app/*"
+          element={
+            <PrivateRoute>
+              <AppLayout />
+            </PrivateRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AppErrorBoundary>
   )
 }
