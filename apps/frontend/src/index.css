@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Press+Start+2P&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -171,9 +171,8 @@ body {
 
 .lobby-heading {
   color: var(--text-primary);
-  font-weight: 600;
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  line-height: 1;
+  letter-spacing: 0.04em;
 }
 
 .lobby-copy {

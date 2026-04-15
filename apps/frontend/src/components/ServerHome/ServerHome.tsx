@@ -31,9 +31,10 @@ export default function ServerHome() {
             stagger={0.03}
             threshold={0.1}
             triggerOnce={true}
-            triggerOnHover={true}
+            triggerOnHover
             respectReducedMotion={true}
-            textAlign="left"
+            loop={false}
+            loopDelay={0}
             scrambleCharset="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
           />
         )}
