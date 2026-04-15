@@ -41,17 +41,15 @@ export default function AppLayout() {
   useEffect(() => {
     if (channels.length === 0) return
 
-    const selectedChannel = channels.find(
-      (channel) => channel.id === routeChannelId && channel.type === 'TEXT'
-    )
+    const selectedChannel = channels.find((channel) => channel.id === routeChannelId)
 
     if (selectedChannel) return
 
-    const firstTextChannel = channels.find((channel) => channel.type === 'TEXT')
-    if (!firstTextChannel) return
+    const fallbackChannel = channels.find((channel) => channel.type === 'TEXT') ?? channels[0]
+    if (!fallbackChannel) return
 
-    if (routeChannelId !== firstTextChannel.id) {
-      navigate(`/app/channel/${firstTextChannel.id}`, { replace: true })
+    if (routeChannelId !== fallbackChannel.id) {
+      navigate(`/app/channel/${fallbackChannel.id}`, { replace: true })
     }
   }, [channels, navigate, routeChannelId])
 

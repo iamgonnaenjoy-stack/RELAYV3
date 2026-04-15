@@ -7,7 +7,7 @@ import { joinChannel, leaveChannel } from '@/lib/socket'
 import MessageItem from './MessageItem'
 import MessageInput from './MessageInput'
 import ChatHeader from './ChatHeader'
-import { Hash } from 'lucide-react'
+import { Hash, Volume2 } from 'lucide-react'
 
 const EMPTY_MESSAGES: ReturnType<typeof useMessageStore.getState>['messages'][string] = []
 
@@ -20,10 +20,12 @@ export default function ChatArea() {
   const setMessages = useMessageStore((s) => s.setMessages)
   const channels = useChannelStore((s) => s.channels)
   const channel = channels.find((c) => c.id === channelId)
+  const isTextChannel = channel?.type === 'TEXT'
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
-    if (!channelId) return
+    if (!channelId || !isTextChannel) return
 
     joinChannel(channelId)
     setLoading(true)
@@ -32,7 +34,7 @@ export default function ChatArea() {
     return () => {
       leaveChannel(channelId)
     }
-  }, [channelId, setMessages])
+  }, [channelId, isTextChannel, setMessages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -47,6 +49,26 @@ export default function ChatArea() {
           </div>
           <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 16 }}>Channel unavailable</p>
           <p style={{ color: '#555', fontSize: 13 }}>Pick another text channel from the sidebar.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isTextChannel) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#000000' }}>
+        <ChatHeader channel={channel} />
+
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ display: 'flex', maxWidth: 360, flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#111111', border: '1px solid #222222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Volume2 size={26} color="#5865F2" />
+            </div>
+            <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 18 }}>Voice channels are coming soon</p>
+            <p style={{ color: '#5B6372', fontSize: 14, lineHeight: 1.6 }}>
+              #{channel.name} is ready in the server, but voice calling is still under construction.
+            </p>
+          </div>
         </div>
       </div>
     )

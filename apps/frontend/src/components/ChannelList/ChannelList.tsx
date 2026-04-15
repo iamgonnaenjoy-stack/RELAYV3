@@ -4,7 +4,6 @@ import { ChevronDown, Hash, LogOut, Volume2, Zap } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Channel, useChannelStore } from '@/stores/channel.store'
 import { useServerStore } from '@/stores/server.store'
-import { joinChannel, leaveChannel } from '@/lib/socket'
 
 function ChannelIcon({ type }: { type: Channel['type'] }) {
   if (type === 'VOICE') return <Volume2 size={15} className="flex-shrink-0 opacity-50" />
@@ -26,8 +25,6 @@ export default function ChannelList() {
   const voiceChannels = channels.filter((channel) => channel.type === 'VOICE')
 
   function handleChannelClick(channel: Channel) {
-    if (activeChannelId && activeChannelId !== channel.id) leaveChannel(activeChannelId)
-    joinChannel(channel.id)
     navigate(`/app/channel/${channel.id}`)
   }
 
