@@ -36,6 +36,9 @@ export default function AccessPage() {
         <p className="mb-4 text-center text-sm font-semibold tracking-[0.24em] text-white">
           RELAY V3
         </p>
+        <p className="mb-4 text-center text-xs text-[#666c78]">
+          Paste the full access key from admin. It starts with `relay_` and includes a dot.
+        </p>
 
         <input
           className="h-12 w-full rounded-[10px] border border-[#222222] bg-[#111111] px-4 text-sm text-white outline-none transition-all duration-150 placeholder:text-[#555555] focus:border-[#5865F2]"

@@ -138,7 +138,7 @@ export default function AdminDashboardPage() {
           : current
       )
       setUserForm({ username: '', email: '', avatar: '' })
-      setNotice(`Access key generated for ${response.data.user.username}.`)
+      setNotice(`Access key generated for ${response.data.user.username}. Use the full key shown on the right.`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to create member')
     } finally {
@@ -159,7 +159,7 @@ export default function AdminDashboardPage() {
         )
       )
       setLastCreatedKey(response.data.accessKey)
-      setNotice(`Fresh access key generated for ${response.data.user.username}.`)
+      setNotice(`Fresh access key generated for ${response.data.user.username}. Use the full key shown on the right.`)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Unable to regenerate access key')
     } finally {
@@ -545,10 +545,10 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-text-muted">
-                      Latest key
+                      Full access key
                     </p>
                     <p className="mt-2 text-xs text-text-secondary">
-                      Copy and share it with the invited member.
+                      Copy and share the full value below. The member list only shows the short key id.
                     </p>
                   </div>
                   {lastCreatedKey ? (

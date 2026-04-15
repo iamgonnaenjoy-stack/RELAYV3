@@ -33,7 +33,7 @@ export default function MemberRow({
           </div>
 
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] uppercase tracking-[0.18em] text-text-muted">
-            <span>key {member.accessKeyId}</span>
+            <span>id {member.accessKeyId}</span>
             <span>{member._count?.messages ?? 0} messages</span>
             <span>last login {relativeDate(member.lastLoginAt)}</span>
           </div>
