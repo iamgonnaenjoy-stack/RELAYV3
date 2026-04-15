@@ -26,10 +26,7 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(88, 101, 242, 0.16), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(88, 101, 242, 0.08), transparent 28%),
-    #000000;
+  background: #000000;
   color: #f5f7fa;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -52,26 +49,26 @@ body {
 
 @layer components {
   .panel {
-    @apply rounded-panel border border-border bg-bg-panel/90 shadow-glow backdrop-blur-xl;
+    @apply rounded-panel border border-border-soft bg-bg-panel;
   }
 
   .field {
-    @apply h-11 w-full rounded-control border border-border bg-bg-elevated px-4 text-sm text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent focus:shadow-focus;
+    @apply h-10 w-full rounded-control border border-border-soft bg-black px-3 text-sm text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent focus:shadow-focus;
   }
 
   .textarea-field {
-    @apply w-full rounded-control border border-border bg-bg-elevated px-4 py-3 text-sm text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent focus:shadow-focus;
+    @apply w-full rounded-control border border-border-soft bg-black px-3 py-2.5 text-sm text-text-primary outline-none transition-all duration-150 placeholder:text-text-muted focus:border-accent focus:shadow-focus;
   }
 
   .primary-button {
-    @apply inline-flex h-11 items-center justify-center rounded-control bg-accent px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-text-muted;
+    @apply inline-flex h-10 items-center justify-center rounded-control bg-accent px-4 text-sm font-semibold text-white transition-all duration-150 hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-bg-soft disabled:text-text-muted;
   }
 
   .secondary-button {
-    @apply inline-flex h-11 items-center justify-center rounded-control border border-border bg-transparent px-4 text-sm font-medium text-text-secondary transition-all duration-150 hover:border-accent/60 hover:text-text-primary;
+    @apply inline-flex h-10 items-center justify-center rounded-control border border-border-soft bg-transparent px-4 text-sm font-medium text-text-secondary transition-all duration-150 hover:border-border hover:text-text-primary;
   }
 
   .danger-button {
-    @apply inline-flex h-10 items-center justify-center rounded-control border border-[#412126] bg-transparent px-4 text-sm font-medium text-[#f09596] transition-all duration-150 hover:border-[#5d2b32] hover:bg-[#1d0d10];
+    @apply inline-flex h-10 items-center justify-center rounded-control border border-[#2b1518] bg-transparent px-4 text-sm font-medium text-[#f09596] transition-all duration-150 hover:border-[#412126] hover:bg-[#110709];
   }
 }

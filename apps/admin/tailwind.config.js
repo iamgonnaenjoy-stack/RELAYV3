@@ -34,12 +34,11 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
       },
       borderRadius: {
-        panel: '18px',
-        control: '12px',
+        panel: '12px',
+        control: '8px',
       },
       boxShadow: {
-        glow: '0 18px 45px rgba(0, 0, 0, 0.45)',
-        focus: '0 0 0 2px rgba(88,101,242,0.35)',
+        focus: '0 0 0 1px rgba(88,101,242,0.45)',
       },
     },
   },

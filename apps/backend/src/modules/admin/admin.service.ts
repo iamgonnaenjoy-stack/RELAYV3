@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import { FastifyInstance } from 'fastify'
 import { prisma } from '../../lib/prisma'
 import {
@@ -33,6 +34,35 @@ async function generateUniqueAccessKeyId() {
 
 function formatAccessKey(accessKeyId: string, secret: string) {
   return `${ACCESS_KEY_PREFIX}${accessKeyId}.${secret}`
+}
+
+function throwUserConflict(error: unknown): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    const target = Array.isArray(error.meta?.target) ? error.meta.target : []
+
+    if (target.includes('email')) {
+      throw {
+        statusCode: 409,
+        message: 'Email is already assigned to another member',
+      }
+    }
+
+    if (target.includes('username')) {
+      throw {
+        statusCode: 409,
+        message: 'Username is already taken',
+      }
+    }
+
+    if (target.includes('accessKeyId')) {
+      throw {
+        statusCode: 409,
+        message: 'Access key collision detected. Please try again.',
+      }
+    }
+  }
+
+  throw error
 }
 
 export function signAdminToken(app: FastifyInstance) {
@@ -119,24 +149,30 @@ export async function createAdminUser(data: CreateAdminUserInput) {
   const accessSecret = generateTokenPart(24)
   const passwordHash = await bcrypt.hash(accessSecret, 10)
 
-  const user = await prisma.user.create({
-    data: {
-      accessKeyId,
-      username: data.username,
-      email: data.email ?? null,
-      avatar: data.avatar ?? null,
-      passwordHash,
-    },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      avatar: true,
-      accessKeyId: true,
-      lastLoginAt: true,
-      createdAt: true,
-    },
-  })
+  let user
+
+  try {
+    user = await prisma.user.create({
+      data: {
+        accessKeyId,
+        username: data.username,
+        email: data.email ?? null,
+        avatar: data.avatar ?? null,
+        passwordHash,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+        accessKeyId: true,
+        lastLoginAt: true,
+        createdAt: true,
+      },
+    })
+  } catch (error) {
+    throwUserConflict(error)
+  }
 
   return {
     user,
