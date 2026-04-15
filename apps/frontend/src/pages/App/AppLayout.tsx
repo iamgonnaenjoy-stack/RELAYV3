@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import ChannelList from '@/components/ChannelList/ChannelList'
 import ChatArea from '@/components/Chat/ChatArea'
 import { useChannelStore } from '@/stores/channel.store'
@@ -9,10 +9,15 @@ import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 export default function AppLayout() {
   const setServer = useServerStore((state) => state.setServer)
+  const channels = useChannelStore((state) => state.channels)
   const setChannels = useChannelStore((state) => state.setChannels)
-  const activeChannelId = useChannelStore((state) => state.activeChannelId)
-  const setActiveChannel = useChannelStore((state) => state.setActiveChannel)
+  const location = useLocation()
   const navigate = useNavigate()
+
+  const routeChannelId = useMemo(() => {
+    const match = location.pathname.match(/\/app\/channel\/([^/]+)/)
+    return match?.[1] ?? null
+  }, [location.pathname])
 
   useEffect(() => {
     connectSocket()
@@ -27,17 +32,28 @@ export default function AppLayout() {
       .then(([serverResponse, channelResponse]) => {
         setServer(serverResponse.data)
         setChannels(channelResponse.data)
-
-        const firstTextChannel = channelResponse.data.find((channel) => channel.type === 'TEXT')
-        if (firstTextChannel && !activeChannelId) {
-          setActiveChannel(firstTextChannel.id)
-          navigate(`/app/channel/${firstTextChannel.id}`, { replace: true })
-        }
       })
       .catch(() => {
         setChannels([])
       })
-  }, [activeChannelId, navigate, setActiveChannel, setChannels, setServer])
+  }, [setChannels, setServer])
+
+  useEffect(() => {
+    if (channels.length === 0) return
+
+    const selectedChannel = channels.find(
+      (channel) => channel.id === routeChannelId && channel.type === 'TEXT'
+    )
+
+    if (selectedChannel) return
+
+    const firstTextChannel = channels.find((channel) => channel.type === 'TEXT')
+    if (!firstTextChannel) return
+
+    if (routeChannelId !== firstTextChannel.id) {
+      navigate(`/app/channel/${firstTextChannel.id}`, { replace: true })
+    }
+  }, [channels, navigate, routeChannelId])
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#000000]">

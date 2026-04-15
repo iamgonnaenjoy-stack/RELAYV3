@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, Hash, LogOut, Volume2, Zap } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Channel, useChannelStore } from '@/stores/channel.store'
@@ -13,21 +13,20 @@ function ChannelIcon({ type }: { type: Channel['type'] }) {
 
 export default function ChannelList() {
   const channels = useChannelStore((state) => state.channels)
-  const activeChannelId = useChannelStore((state) => state.activeChannelId)
-  const setActiveChannel = useChannelStore((state) => state.setActiveChannel)
   const user = useAuthStore((state) => state.user)
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const server = useServerStore((state) => state.server)
+  const location = useLocation()
   const navigate = useNavigate()
   const [textOpen, setTextOpen] = useState(true)
   const [voiceOpen, setVoiceOpen] = useState(true)
 
+  const activeChannelId = location.pathname.match(/\/app\/channel\/([^/]+)/)?.[1] ?? null
   const textChannels = channels.filter((channel) => channel.type === 'TEXT')
   const voiceChannels = channels.filter((channel) => channel.type === 'VOICE')
 
   function handleChannelClick(channel: Channel) {
     if (activeChannelId && activeChannelId !== channel.id) leaveChannel(activeChannelId)
-    setActiveChannel(channel.id)
     joinChannel(channel.id)
     navigate(`/app/channel/${channel.id}`)
   }

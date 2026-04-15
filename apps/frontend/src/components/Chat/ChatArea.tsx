@@ -33,7 +33,19 @@ export default function ChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  if (!channel) return null
+  if (!channel) {
+    return (
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: '#000000' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, color: '#555' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#111', border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Hash size={24} color="#444" />
+          </div>
+          <p style={{ color: '#ffffff', fontWeight: 700, fontSize: 16 }}>Channel unavailable</p>
+          <p style={{ color: '#555', fontSize: 13 }}>Pick another text channel from the sidebar.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#000000' }}>
