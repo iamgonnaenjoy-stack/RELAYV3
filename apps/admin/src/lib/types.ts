@@ -24,7 +24,7 @@ export interface AdminMember {
   accessKeyId: string
   lastLoginAt: string | null
   createdAt: string
-  _count: {
+  _count?: {
     messages: number
   }
 }

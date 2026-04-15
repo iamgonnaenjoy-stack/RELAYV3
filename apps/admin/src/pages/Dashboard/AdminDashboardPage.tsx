@@ -22,6 +22,15 @@ function relativeDate(value: string | null) {
   return formatDistanceToNow(new Date(value), { addSuffix: true })
 }
 
+function normalizeMember(member: AdminMember): AdminMember {
+  return {
+    ...member,
+    _count: {
+      messages: member._count?.messages ?? 0,
+    },
+  }
+}
+
 export default function AdminDashboardPage() {
   const adminUser = useAdminAuthStore((state) => state.user)
   const clearAuth = useAdminAuthStore((state) => state.clearAuth)
@@ -71,7 +80,7 @@ export default function AdminDashboardPage() {
         name: overviewResponse.data.server.name,
         description: overviewResponse.data.server.description ?? '',
       })
-      setUsers(usersResponse.data)
+      setUsers(usersResponse.data.map(normalizeMember))
       setChannels(channelsResponse.data)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load admin workspace')
@@ -115,7 +124,7 @@ export default function AdminDashboardPage() {
 
     try {
       const response = await adminApi.createUser(userForm)
-      setUsers((current) => [response.data.user, ...current])
+      setUsers((current) => [normalizeMember(response.data.user), ...current])
       setLastCreatedKey(response.data.accessKey)
       setOverview((current) =>
         current
@@ -145,7 +154,9 @@ export default function AdminDashboardPage() {
     try {
       const response = await adminApi.resetUserAccessKey(userId)
       setUsers((current) =>
-        current.map((member) => (member.id === userId ? response.data.user : member))
+        current.map((member) =>
+          member.id === userId ? normalizeMember(response.data.user) : member
+        )
       )
       setLastCreatedKey(response.data.accessKey)
       setNotice(`Fresh access key generated for ${response.data.user.username}.`)

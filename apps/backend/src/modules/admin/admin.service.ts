@@ -168,6 +168,11 @@ export async function createAdminUser(data: CreateAdminUserInput) {
         accessKeyId: true,
         lastLoginAt: true,
         createdAt: true,
+        _count: {
+          select: {
+            messages: true,
+          },
+        },
       },
     })
   } catch (error) {
@@ -199,6 +204,11 @@ export async function regenerateUserAccessKey(userId: string) {
       accessKeyId: true,
       lastLoginAt: true,
       createdAt: true,
+      _count: {
+        select: {
+          messages: true,
+        },
+      },
     },
   })
 
