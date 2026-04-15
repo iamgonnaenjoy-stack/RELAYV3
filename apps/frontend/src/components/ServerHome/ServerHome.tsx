@@ -1,17 +1,11 @@
-import { Hash, Volume2, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import Skeleton from '@/components/ui/Skeleton'
-import { useChannelStore } from '@/stores/channel.store'
+import Shuffle from '@/components/ui/Shuffle'
 import { useServerStore } from '@/stores/server.store'
 
 export default function ServerHome() {
   const server = useServerStore((state) => state.server)
   const serverLoading = useServerStore((state) => state.loading)
-  const channels = useChannelStore((state) => state.channels)
-  const channelsLoading = useChannelStore((state) => state.loading)
-
-  const textChannels = channels.filter((channel) => channel.type === 'TEXT')
-  const voiceChannels = channels.filter((channel) => channel.type === 'VOICE')
-  const isLoading = serverLoading || channelsLoading
 
   return (
     <section className="route-shell lobby-shell flex h-full flex-1 items-center justify-center overflow-y-auto px-6 py-10 sm:px-10">
@@ -25,9 +19,23 @@ export default function ServerHome() {
         {serverLoading && !server ? (
           <Skeleton className="mb-4 h-14 w-full max-w-[380px]" />
         ) : (
-          <h1 className="lobby-heading mb-4 text-[clamp(40px,8vw,72px)]">
-            {server?.name ?? 'Relay'}
-          </h1>
+          <Shuffle
+            text={server?.name ?? 'Relay'}
+            tag="h1"
+            className="lobby-heading mb-4 text-[clamp(40px,8vw,72px)]"
+            shuffleDirection="right"
+            duration={0.35}
+            animationMode="evenodd"
+            shuffleTimes={1}
+            ease="power3.out"
+            stagger={0.03}
+            threshold={0.1}
+            triggerOnce={true}
+            triggerOnHover={true}
+            respectReducedMotion={true}
+            textAlign="left"
+            scrambleCharset="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+          />
         )}
 
         {serverLoading && !server ? (
@@ -41,31 +49,6 @@ export default function ServerHome() {
             you actively enter a channel.
           </p>
         )}
-
-        <div className="mt-10 flex max-w-[520px] flex-col gap-3">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </>
-          ) : (
-            <>
-              <div className="lobby-row">
-                <Hash size={14} className="lobby-row-icon" />
-                <span>{textChannels.length} text channels available</span>
-              </div>
-              <div className="lobby-row">
-                <Volume2 size={14} className="lobby-row-icon" />
-                <span>{voiceChannels.length} voice channels available</span>
-              </div>
-              <div className="lobby-row">
-                <Zap size={14} className="lobby-row-icon" />
-                <span>Select a channel to begin</span>
-              </div>
-            </>
-          )}
-        </div>
       </div>
     </section>
   )
