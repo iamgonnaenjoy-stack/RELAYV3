@@ -4,6 +4,7 @@ import { Hash, Volume2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth.store'
 import { Message, useMessageStore } from '@/stores/message.store'
 import { useChannelStore } from '@/stores/channel.store'
+import { usePreferencesStore } from '@/stores/preferences.store'
 import { useShellStore } from '@/stores/shell.store'
 import { messageApi } from '@/lib/services'
 import { emitTypingStop, joinChannel, leaveChannel, sendSocketMessage } from '@/lib/socket'
@@ -11,6 +12,7 @@ import MessageItem from './MessageItem'
 import MessageInput from './MessageInput'
 import ChatHeader from './ChatHeader'
 import TypingIndicator from './TypingIndicator'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Skeleton from '@/components/ui/Skeleton'
 
 const EMPTY_CHANNEL_STATE = {
@@ -131,6 +133,8 @@ export default function ChatArea() {
   const updateMessage = useMessageStore((state) => state.updateMessage)
   const removeMessage = useMessageStore((state) => state.deleteMessage)
   const clearTypingUsers = useMessageStore((state) => state.clearTypingUsers)
+  const confirmMessageDelete = usePreferencesStore((state) => state.confirmMessageDelete)
+  const setConfirmMessageDelete = usePreferencesStore((state) => state.setConfirmMessageDelete)
   const connectionStatus = useShellStore((state) => state.connectionStatus)
   const channel = channels.find((c) => c.id === channelId)
   const isTextChannel = channel?.type === 'TEXT'
@@ -140,6 +144,9 @@ export default function ChatArea() {
   const [editingValue, setEditingValue] = useState('')
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null)
+  const [skipDeletePrompt, setSkipDeletePrompt] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastChannelIdRef = useRef<string | null>(null)
@@ -147,6 +154,7 @@ export default function ChatArea() {
   const restoreScrollOffsetRef = useRef<number | null>(null)
   const loadingOlderRef = useRef(false)
   const copiedMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const highlightedMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const messages = channelState.items
   const hasLoadedMessages = channelState.hasLoaded
@@ -283,10 +291,17 @@ export default function ChatArea() {
         clearTimeout(copiedMessageTimeoutRef.current)
         copiedMessageTimeoutRef.current = null
       }
+      if (highlightedMessageTimeoutRef.current) {
+        clearTimeout(highlightedMessageTimeoutRef.current)
+        highlightedMessageTimeoutRef.current = null
+      }
       setEditingMessageId(null)
       setEditingValue('')
       setReplyingTo(null)
       setCopiedMessageId(null)
+      setHighlightedMessageId(null)
+      setMessagePendingDelete(null)
+      setSkipDeletePrompt(false)
       setActionError(null)
     }
   }, [channelId, clearTypingUsers, isTextChannel, loadMessages])
@@ -295,6 +310,9 @@ export default function ChatArea() {
     () => () => {
       if (copiedMessageTimeoutRef.current) {
         clearTimeout(copiedMessageTimeoutRef.current)
+      }
+      if (highlightedMessageTimeoutRef.current) {
+        clearTimeout(highlightedMessageTimeoutRef.current)
       }
     },
     []
@@ -399,6 +417,24 @@ export default function ChatArea() {
     }
   }
 
+  function handleJumpToMessage(messageId: string) {
+    const target = document.getElementById(`message-${messageId}`)
+    if (!target) {
+      return
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedMessageId(messageId)
+
+    if (highlightedMessageTimeoutRef.current) {
+      clearTimeout(highlightedMessageTimeoutRef.current)
+    }
+
+    highlightedMessageTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current))
+    }, 1800)
+  }
+
   async function handleSaveEdit() {
     if (!channelId || !editingMessageId || editingValue.trim() === '') return
 
@@ -416,40 +452,72 @@ export default function ChatArea() {
     }
   }
 
-  async function handleDeleteMessage(messageId: string) {
-    if (!channelId) return
-
-    const existingMessage = messages.find((message) => message.id === messageId)
-    if (!existingMessage) return
-
-    if (!window.confirm('Delete this message?')) {
+  async function performDeleteMessage(message: Message) {
+    if (!channelId) {
       return
     }
 
-    setActionBusyId(messageId)
-    removeMessage(channelId, messageId)
-    if (editingMessageId === messageId) {
+    setActionBusyId(message.id)
+    removeMessage(channelId, message.id)
+    if (editingMessageId === message.id) {
       handleCancelEdit()
     }
-    if (replyingTo?.id === messageId) {
+    if (replyingTo?.id === message.id) {
       setReplyingTo(null)
     }
 
-    if (existingMessage.failed || existingMessage.id.startsWith('temp-')) {
+    if (messagePendingDelete?.id === message.id) {
+      setMessagePendingDelete(null)
+    }
+
+    if (message.failed || message.id.startsWith('temp-')) {
       setActionBusyId(null)
       setActionError(null)
       return
     }
 
     try {
-      await messageApi.delete(messageId)
+      await messageApi.delete(message.id)
       setActionError(null)
     } catch (error: any) {
-      reconcileIncomingMessage(channelId, existingMessage)
+      reconcileIncomingMessage(channelId, message)
       setActionError(error.response?.data?.error ?? 'Unable to delete this message.')
     } finally {
       setActionBusyId(null)
     }
+  }
+
+  function handleDeleteMessage(messageId: string) {
+    const existingMessage = messages.find((message) => message.id === messageId)
+    if (!existingMessage) {
+      return
+    }
+
+    if (!confirmMessageDelete) {
+      void performDeleteMessage(existingMessage)
+      return
+    }
+
+    setSkipDeletePrompt(false)
+    setMessagePendingDelete(existingMessage)
+  }
+
+  async function handleConfirmDelete() {
+    if (!messagePendingDelete) {
+      return
+    }
+
+    if (skipDeletePrompt) {
+      setConfirmMessageDelete(false)
+    }
+
+    await performDeleteMessage(messagePendingDelete)
+    setSkipDeletePrompt(false)
+  }
+
+  function handleCancelDelete() {
+    setMessagePendingDelete(null)
+    setSkipDeletePrompt(false)
   }
 
   async function handleRetryMessage(messageId: string) {
@@ -585,11 +653,17 @@ export default function ChatArea() {
                 onSaveEdit={() => void handleSaveEdit()}
                 onCopy={() => void handleCopyMessage(msg)}
                 onReply={() => handleReplyToMessage(msg)}
-                onDelete={() => void handleDeleteMessage(msg.id)}
+                onDelete={() => handleDeleteMessage(msg.id)}
                 onRetry={() => void handleRetryMessage(msg.id)}
                 copied={copiedMessageId === msg.id}
                 isReplying={replyingTo?.id === msg.id}
+                isHighlighted={highlightedMessageId === msg.id}
                 isGrouped={shouldGroupMessages(messages[i - 1], msg)}
+                onJumpToReply={() => {
+                  if (msg.replyTo) {
+                    handleJumpToMessage(msg.replyTo.id)
+                  }
+                }}
               />
             ))}
           </div>
@@ -609,6 +683,21 @@ export default function ChatArea() {
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
         onSend={handleSendMessage}
+      />
+
+      <ConfirmDialog
+        open={!!messagePendingDelete}
+        title="Delete message?"
+        description="This will remove the message for everyone in this channel."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        tone="danger"
+        disableFutureLabel="Don't ask next time"
+        disableFutureChecked={skipDeletePrompt}
+        busy={!!messagePendingDelete && actionBusyId === messagePendingDelete.id}
+        onDisableFutureChange={setSkipDeletePrompt}
+        onCancel={handleCancelDelete}
+        onConfirm={() => void handleConfirmDelete()}
       />
     </div>
   )

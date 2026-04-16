@@ -12,12 +12,14 @@ interface Props {
   actionBusy: boolean
   copied: boolean
   isReplying: boolean
+  isHighlighted: boolean
   onStartEdit: () => void
   onEditingChange: (value: string) => void
   onCancelEdit: () => void
   onSaveEdit: () => void
   onCopy: () => void
   onReply: () => void
+  onJumpToReply: () => void
   onDelete: () => void
   onRetry: () => void
 }
@@ -53,16 +55,19 @@ export default function MessageItem({
   actionBusy,
   copied,
   isReplying,
+  isHighlighted,
   onStartEdit,
   onEditingChange,
   onCancelEdit,
   onSaveEdit,
   onCopy,
   onReply,
+  onJumpToReply,
   onDelete,
   onRetry,
 }: Props) {
   const color = avatarColor(message.author.username)
+  const replyColor = message.replyTo ? avatarColor(message.replyTo.author.username) : null
   const canSaveEdit = editingValue.trim().length > 0 && editingValue.trim() !== message.content
   const canReply = !message.pending && !message.failed
   const canEdit = isOwnMessage && !message.pending && !message.failed
@@ -71,8 +76,10 @@ export default function MessageItem({
 
   return (
     <div
+      id={`message-${message.id}`}
       className={clsx(
         'group flex items-start gap-4 px-4 transition-colors duration-100 hover:bg-bg-hover',
+        isHighlighted && 'bg-[var(--accent-soft)]',
         isGrouped ? 'py-0.5' : 'pt-4 pb-0.5'
       )}
     >
@@ -102,10 +109,11 @@ export default function MessageItem({
         ) : null}
 
         {isEditing ? (
-          <div className="surface mt-1 p-3">
+          <div className="mt-1 max-w-[720px]">
             <textarea
-              className="min-h-[88px] w-full resize-y bg-transparent text-sm leading-6 text-text-primary outline-none"
+              className="w-full resize-none overflow-y-auto rounded-input border border-border bg-bg-elevated px-3 py-2.5 text-sm leading-6 text-text-primary outline-none transition-colors duration-150 focus:border-accent"
               value={editingValue}
+              rows={Math.min(Math.max(editingValue.split('\n').length, 1), 8)}
               onChange={(event) => onEditingChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
@@ -113,41 +121,71 @@ export default function MessageItem({
                   onCancelEdit()
                 }
 
-                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && canSaveEdit) {
+                if (event.key === 'Enter' && !event.shiftKey && canSaveEdit) {
                   event.preventDefault()
                   onSaveEdit()
                 }
               }}
               autoFocus
             />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[11px] text-text-disabled">
-                Press escape to cancel, or save the updated message.
-              </p>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={onCancelEdit} className="btn-ghost px-3 py-1.5 text-xs">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={onSaveEdit}
-                  disabled={!canSaveEdit || actionBusy}
-                  className="btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Save
-                </button>
-              </div>
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-text-muted">
+              <span>escape to</span>
+              <button
+                type="button"
+                onClick={onCancelEdit}
+                className="font-medium text-text-secondary transition-colors duration-150 hover:text-text-primary"
+              >
+                cancel
+              </button>
+              <span>• enter to</span>
+              <button
+                type="button"
+                onClick={onSaveEdit}
+                disabled={!canSaveEdit || actionBusy}
+                className="font-medium text-accent transition-colors duration-150 hover:text-text-primary disabled:cursor-not-allowed disabled:text-text-disabled"
+              >
+                save
+              </button>
+              <span>• shift + enter for a new line</span>
             </div>
           </div>
         ) : (
           <>
             {message.replyTo ? (
-              <div className="mb-1.5 flex max-w-[560px] min-w-0 items-center gap-2 overflow-hidden rounded-input border border-border bg-bg-surface px-2.5 py-1.5 text-xs text-text-muted">
-                <Reply size={11} className="shrink-0 text-accent" />
-                <span className="shrink-0 font-medium text-text-secondary">
-                  {message.replyTo.author.username}
-                </span>
-                <span className="min-w-0 truncate">{message.replyTo.content}</span>
+              <div className="relative mb-1.5 pl-7">
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 top-[9px] h-3.5 w-4 rounded-tl-[var(--radius-btn)] border-l border-t border-divider"
+                />
+                <button
+                  type="button"
+                  onClick={onJumpToReply}
+                  className="flex max-w-full items-center gap-1.5 text-left text-xs text-text-muted opacity-70 transition-opacity duration-150 hover:opacity-100"
+                  title="Jump to referenced message"
+                >
+                  {message.replyTo.author.avatar ? (
+                    <img
+                      src={message.replyTo.author.avatar}
+                      alt={message.replyTo.author.username}
+                      className="h-4 w-4 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold"
+                      style={{
+                        background: `${replyColor ?? color}22`,
+                        borderColor: `${replyColor ?? color}33`,
+                        color: replyColor ?? color,
+                      }}
+                    >
+                      {message.replyTo.author.username[0].toUpperCase()}
+                    </span>
+                  )}
+                  <span className="shrink-0 font-medium text-text-primary">
+                    {message.replyTo.author.username}
+                  </span>
+                  <span className="min-w-0 truncate">{message.replyTo.content}</span>
+                </button>
               </div>
             ) : null}
 

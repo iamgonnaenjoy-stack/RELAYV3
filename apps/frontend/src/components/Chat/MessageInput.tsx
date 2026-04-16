@@ -106,12 +106,12 @@ export default function MessageInput({
   return (
     <div className="shrink-0 px-4 pb-5">
       <div
-        className={`rounded-card border bg-bg-surface transition-colors duration-150 ${
+        className={`overflow-hidden rounded-card border bg-bg-surface transition-colors duration-150 ${
           focused ? 'border-[rgba(88,101,242,0.4)]' : 'border-border'
         }`}
       >
         {replyingTo ? (
-          <div className="flex items-start justify-between gap-3 border-b border-divider px-3.5 py-2.5">
+          <div className="flex items-start justify-between gap-3 border-b border-divider px-4 py-2.5">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-[11px] font-medium text-accent">
                 <Reply size={12} />
@@ -130,10 +130,10 @@ export default function MessageInput({
           </div>
         ) : null}
 
-        <div className="flex items-end gap-2.5 px-3.5 py-2.5">
+        <div className="flex min-h-[54px] items-end gap-2.5 px-3 py-1.5">
           <button
             type="button"
-            className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:text-text-secondary"
+            className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary"
             title="Attachments are coming soon"
             disabled={disabled}
           >
@@ -142,7 +142,7 @@ export default function MessageInput({
 
           <textarea
             ref={textareaRef}
-            className="min-h-[24px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent text-sm leading-6 text-text-primary outline-none placeholder:text-text-disabled"
+            className="min-h-[38px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent py-[9px] text-sm leading-5 text-text-primary outline-none placeholder:text-text-disabled"
             placeholder={`Message #${channelName}`}
             value={draft}
             rows={1}
@@ -169,7 +169,7 @@ export default function MessageInput({
             type="button"
             onClick={() => void handleSend()}
             disabled={!canSend || submitting}
-            className={`mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 ${
+            className={`mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 ${
               canSend && !submitting
                 ? 'bg-accent text-white hover:bg-accent-hover'
                 : 'cursor-not-allowed bg-transparent text-[#333333]'
