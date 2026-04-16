@@ -120,11 +120,18 @@ export default function MessageItem({
     <div
       id={`message-${message.id}`}
       className={clsx(
-        'group flex items-start gap-4 px-4 transition-colors duration-150 hover:bg-[var(--bg-message-hover)]',
+        'group relative flex items-start gap-4 px-4 transition-colors duration-150 hover:bg-[var(--bg-message-hover)]',
         isHighlighted && 'bg-[var(--bg-message-highlight)]',
         showGroupedLayout ? 'py-0.5' : 'pt-0.5 pb-0.5'
       )}
     >
+      {replyToMessage ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[36px] top-[-2px] z-0 h-[16px] w-[32px] rounded-bl-[6px] border-b-2 border-l-2 border-[var(--reply-connector)]"
+        />
+      ) : null}
+
       <div className="relative z-10 flex w-10 shrink-0 justify-center pt-0.5">
         {showGroupedLayout ? (
           <span className="mt-1 select-none text-[12px] text-text-disabled opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -142,13 +149,9 @@ export default function MessageItem({
         )}
       </div>
 
-      <div className="relative z-0 min-w-0 flex-1 pb-0.5">
+      <div className="relative z-10 min-w-0 flex-1 pb-0.5">
         {replyToMessage ? (
           <div className="relative mb-1 h-[22px]">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute left-[-12px] top-[11px] z-0 h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
-            />
             <div
               role="button"
               tabIndex={0}
@@ -159,7 +162,7 @@ export default function MessageItem({
                   onJumpToReply()
                 }
               }}
-              className="group/reply relative z-10 flex h-[22px] w-full max-w-full cursor-pointer items-center gap-1.5 overflow-hidden text-left text-[14px] leading-[20px] text-[var(--text-reply-preview)] opacity-[0.64] transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100 focus-visible:shadow-none"
+              className="group/reply relative z-10 flex h-[22px] w-full max-w-full cursor-pointer items-center gap-1.5 overflow-hidden pl-3 text-left text-[14px] leading-[20px] text-[var(--text-reply-preview)] opacity-[0.64] transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100 focus-visible:shadow-none"
               title="Jump to referenced message"
             >
               <button
