@@ -105,9 +105,11 @@ export default function MessageItem({
   onDelete,
   onRetry,
 }: Props) {
+  const replyToMessage = message.replyTo
+  const isReplyMessage = Boolean(replyToMessage)
   const color = avatarColor(message.author.username)
-  const replyColor = message.replyTo ? avatarColor(message.replyTo.author.username) : null
-  const showGroupedLayout = isGrouped && !message.replyTo
+  const replyColor = replyToMessage ? avatarColor(replyToMessage.author.username) : null
+  const showGroupedLayout = isGrouped && !isReplyMessage
   const canSaveEdit = editingValue.trim().length > 0 && editingValue.trim() !== message.content
   const canReply = !message.pending && !message.failed
   const canEdit = isOwnMessage && !message.pending && !message.failed
@@ -141,11 +143,11 @@ export default function MessageItem({
       </div>
 
       <div className="relative z-0 min-w-0 flex-1 pb-0.5">
-        {message.replyTo ? (
+        {replyToMessage ? (
           <div className="relative mb-1 h-[22px]">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute left-[-36px] top-[11px] z-0 h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
+              className="pointer-events-none absolute left-[-12px] top-[11px] z-0 h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
             />
             <div
               role="button"
@@ -168,10 +170,10 @@ export default function MessageItem({
                 }}
                 className="rounded-full focus-visible:shadow-none"
                 tabIndex={-1}
-                title={`Open ${message.replyTo.author.username}'s profile`}
+                title={`Open ${replyToMessage.author.username}'s profile`}
               >
                 <Avatar
-                  user={message.replyTo.author}
+                  user={replyToMessage.author}
                   size={16}
                   color={replyColor ?? color}
                 />
@@ -184,12 +186,12 @@ export default function MessageItem({
                 }}
                 className="shrink-0 truncate font-medium text-text-primary transition-colors duration-150 group-hover/reply:underline focus-visible:shadow-none"
                 tabIndex={-1}
-                title={`Open ${message.replyTo.author.username}'s profile`}
+                title={`Open ${replyToMessage.author.username}'s profile`}
               >
-                {message.replyTo.author.username}
+                {replyToMessage.author.username}
               </button>
               <span className="min-w-0 max-w-[160px] truncate">
-                {message.replyTo.content}
+                {replyToMessage.content}
               </span>
             </div>
           </div>

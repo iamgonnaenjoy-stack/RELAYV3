@@ -665,7 +665,7 @@ export default function ChatArea() {
                 copied={copiedMessageId === msg.id}
                 isReplying={replyingTo?.id === msg.id}
                 isHighlighted={highlightedMessageId === msg.id}
-                isGrouped={shouldGroupMessages(messages[i - 1], msg)}
+                isGrouped={msg.replyTo ? false : shouldGroupMessages(messages[i - 1], msg)}
                 onJumpToReply={() => {
                   if (msg.replyTo) {
                     handleJumpToMessage(msg.replyTo.id)
