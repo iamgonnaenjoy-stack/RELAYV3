@@ -124,7 +124,7 @@ export default function MessageItem({
     >
       <div className="flex w-10 shrink-0 justify-center pt-0.5">
         {isGrouped ? (
-          <span className="mt-1 select-none text-[10px] text-text-disabled opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <span className="mt-1 select-none text-[12px] text-text-disabled opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             {shortTime(message.createdAt)}
           </span>
         ) : (
@@ -141,15 +141,30 @@ export default function MessageItem({
 
       <div className="min-w-0 flex-1 pb-0.5">
         {message.replyTo ? (
-          <div className="relative mb-0.5 h-[22px]">
+          <div className="relative mb-1 h-[22px]">
             <span
               aria-hidden="true"
-              className="absolute left-[-36px] top-[10px] h-[15px] w-[30px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
+              className="pointer-events-none absolute left-[-36px] top-[11px] h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
             />
-            <div className="group/reply flex h-[22px] max-w-full items-center gap-1.5 text-[12px] text-[var(--text-reply-preview)] opacity-65 transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={onJumpToReply}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  onJumpToReply()
+                }
+              }}
+              className="group/reply flex h-[22px] w-full max-w-full cursor-pointer items-center gap-1.5 overflow-hidden text-left text-[14px] leading-[20px] text-[var(--text-reply-preview)] opacity-[0.64] transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100 focus-visible:shadow-none"
+              title="Jump to referenced message"
+            >
               <button
                 type="button"
-                onClick={onOpenReplyAuthorProfile}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenReplyAuthorProfile()
+                }}
                 className="rounded-full focus-visible:shadow-none"
                 tabIndex={-1}
                 title={`Open ${message.replyTo.author.username}'s profile`}
@@ -162,21 +177,19 @@ export default function MessageItem({
               </button>
               <button
                 type="button"
-                onClick={onOpenReplyAuthorProfile}
-                className="shrink-0 font-medium text-text-primary transition-colors duration-150 group-hover/reply:underline focus-visible:shadow-none"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenReplyAuthorProfile()
+                }}
+                className="shrink-0 truncate font-medium text-text-primary transition-colors duration-150 group-hover/reply:underline focus-visible:shadow-none"
                 tabIndex={-1}
                 title={`Open ${message.replyTo.author.username}'s profile`}
               >
                 {message.replyTo.author.username}
               </button>
-              <button
-                type="button"
-                onClick={onJumpToReply}
-                className="min-w-0 max-w-[160px] truncate text-left text-[var(--text-reply-preview)] transition-colors duration-150 hover:text-[var(--text-reply-preview-hover)] focus-visible:shadow-none"
-                title="Jump to referenced message"
-              >
+              <span className="min-w-0 max-w-[160px] truncate">
                 {message.replyTo.content}
-              </button>
+              </span>
             </div>
           </div>
         ) : null}
@@ -226,7 +239,7 @@ export default function MessageItem({
                   >
                     cancel
                   </button>
-                  <span>• enter to</span>
+                  <span>&bull; enter to</span>
                   <button
                     type="button"
                     onClick={onSaveEdit}
@@ -235,13 +248,13 @@ export default function MessageItem({
                   >
                     save
                   </button>
-                  <span>• shift + enter for a new line</span>
+                  <span>&bull; shift + enter for a new line</span>
                 </div>
               </div>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="break-words text-[15px] leading-[22px] text-text-primary">
+                  <p className="break-words text-[16px] leading-[22px] text-text-primary">
                     {message.content}
                   </p>
                   {message.edited ? (
