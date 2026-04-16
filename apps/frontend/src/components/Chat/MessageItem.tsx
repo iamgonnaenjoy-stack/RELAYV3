@@ -107,6 +107,7 @@ export default function MessageItem({
 }: Props) {
   const color = avatarColor(message.author.username)
   const replyColor = message.replyTo ? avatarColor(message.replyTo.author.username) : null
+  const showGroupedLayout = isGrouped && !message.replyTo
   const canSaveEdit = editingValue.trim().length > 0 && editingValue.trim() !== message.content
   const canReply = !message.pending && !message.failed
   const canEdit = isOwnMessage && !message.pending && !message.failed
@@ -119,11 +120,11 @@ export default function MessageItem({
       className={clsx(
         'group flex items-start gap-4 px-4 transition-colors duration-150 hover:bg-[var(--bg-message-hover)]',
         isHighlighted && 'bg-[var(--bg-message-highlight)]',
-        isGrouped ? 'py-0.5' : 'pt-0.5 pb-0.5'
+        showGroupedLayout ? 'py-0.5' : 'pt-0.5 pb-0.5'
       )}
     >
-      <div className="flex w-10 shrink-0 justify-center pt-0.5">
-        {isGrouped ? (
+      <div className="relative z-10 flex w-10 shrink-0 justify-center pt-0.5">
+        {showGroupedLayout ? (
           <span className="mt-1 select-none text-[12px] text-text-disabled opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             {shortTime(message.createdAt)}
           </span>
@@ -139,12 +140,12 @@ export default function MessageItem({
         )}
       </div>
 
-      <div className="min-w-0 flex-1 pb-0.5">
+      <div className="relative z-0 min-w-0 flex-1 pb-0.5">
         {message.replyTo ? (
           <div className="relative mb-1 h-[22px]">
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute left-[-36px] top-[11px] h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
+              className="pointer-events-none absolute left-[-36px] top-[11px] z-0 h-[11px] w-[33px] rounded-tl-[6px] border-l-2 border-t-2 border-[var(--reply-connector)]"
             />
             <div
               role="button"
@@ -156,7 +157,7 @@ export default function MessageItem({
                   onJumpToReply()
                 }
               }}
-              className="group/reply flex h-[22px] w-full max-w-full cursor-pointer items-center gap-1.5 overflow-hidden text-left text-[14px] leading-[20px] text-[var(--text-reply-preview)] opacity-[0.64] transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100 focus-visible:shadow-none"
+              className="group/reply relative z-10 flex h-[22px] w-full max-w-full cursor-pointer items-center gap-1.5 overflow-hidden text-left text-[14px] leading-[20px] text-[var(--text-reply-preview)] opacity-[0.64] transition-all duration-150 hover:text-[var(--text-reply-preview-hover)] hover:opacity-100 focus-visible:shadow-none"
               title="Jump to referenced message"
             >
               <button
@@ -196,7 +197,7 @@ export default function MessageItem({
 
         <div className="min-h-[44px] pt-0.5">
           <div className="min-w-0">
-            {!isGrouped ? (
+            {!showGroupedLayout ? (
               <div className="mb-0.5 flex items-baseline gap-2">
                 <button
                   type="button"
