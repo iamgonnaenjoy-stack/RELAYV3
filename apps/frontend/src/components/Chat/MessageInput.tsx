@@ -122,7 +122,7 @@ export default function MessageInput({
             <button
               type="button"
               onClick={onCancelReply}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-primary focus-visible:shadow-none"
               title="Cancel reply"
             >
               <X size={14} />
@@ -133,7 +133,7 @@ export default function MessageInput({
         <div className="flex min-h-[54px] items-end gap-2.5 px-3 py-1.5">
           <button
             type="button"
-            className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary"
+            className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-btn text-text-disabled transition-colors duration-150 hover:bg-bg-hover hover:text-text-secondary focus-visible:shadow-none"
             title="Attachments are coming soon"
             disabled={disabled}
           >
@@ -142,7 +142,7 @@ export default function MessageInput({
 
           <textarea
             ref={textareaRef}
-            className="min-h-[38px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent py-[9px] text-sm leading-5 text-text-primary outline-none placeholder:text-text-disabled"
+            className="min-h-[38px] max-h-[160px] flex-1 resize-none overflow-y-auto bg-transparent py-[9px] text-sm leading-5 text-text-primary outline-none placeholder:text-text-disabled focus-visible:shadow-none"
             placeholder={`Message #${channelName}`}
             value={draft}
             rows={1}
@@ -169,7 +169,7 @@ export default function MessageInput({
             type="button"
             onClick={() => void handleSend()}
             disabled={!canSend || submitting}
-            className={`mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 ${
+            className={`mb-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-btn transition-colors duration-150 focus-visible:shadow-none ${
               canSend && !submitting
                 ? 'bg-accent text-white hover:bg-accent-hover'
                 : 'cursor-not-allowed bg-transparent text-[#333333]'

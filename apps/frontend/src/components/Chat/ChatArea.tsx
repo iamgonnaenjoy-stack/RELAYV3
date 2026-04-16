@@ -14,6 +14,7 @@ import ChatHeader from './ChatHeader'
 import TypingIndicator from './TypingIndicator'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Skeleton from '@/components/ui/Skeleton'
+import UserProfileDialog, { type ProfileUser } from '@/components/ui/UserProfileDialog'
 
 const EMPTY_CHANNEL_STATE = {
   items: [],
@@ -147,6 +148,7 @@ export default function ChatArea() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
   const [messagePendingDelete, setMessagePendingDelete] = useState<Message | null>(null)
   const [skipDeletePrompt, setSkipDeletePrompt] = useState(false)
+  const [profileUser, setProfileUser] = useState<ProfileUser | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastChannelIdRef = useRef<string | null>(null)
@@ -302,6 +304,7 @@ export default function ChatArea() {
       setHighlightedMessageId(null)
       setMessagePendingDelete(null)
       setSkipDeletePrompt(false)
+      setProfileUser(null)
       setActionError(null)
     }
   }, [channelId, clearTypingUsers, isTextChannel, loadMessages])
@@ -417,6 +420,10 @@ export default function ChatArea() {
     }
   }
 
+  function handleOpenProfile(user: ProfileUser) {
+    setProfileUser(user)
+  }
+
   function handleJumpToMessage(messageId: string) {
     const target = document.getElementById(`message-${messageId}`)
     if (!target) {
@@ -432,7 +439,7 @@ export default function ChatArea() {
 
     highlightedMessageTimeoutRef.current = setTimeout(() => {
       setHighlightedMessageId((current) => (current === messageId ? null : current))
-    }, 1800)
+    }, 1500)
   }
 
   async function handleSaveEdit() {
@@ -664,6 +671,12 @@ export default function ChatArea() {
                     handleJumpToMessage(msg.replyTo.id)
                   }
                 }}
+                onOpenAuthorProfile={() => handleOpenProfile(msg.author)}
+                onOpenReplyAuthorProfile={() => {
+                  if (msg.replyTo) {
+                    handleOpenProfile(msg.replyTo.author)
+                  }
+                }}
               />
             ))}
           </div>
@@ -698,6 +711,12 @@ export default function ChatArea() {
         onDisableFutureChange={setSkipDeletePrompt}
         onCancel={handleCancelDelete}
         onConfirm={() => void handleConfirmDelete()}
+      />
+
+      <UserProfileDialog
+        user={profileUser}
+        open={!!profileUser}
+        onClose={() => setProfileUser(null)}
       />
     </div>
   )
